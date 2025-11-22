@@ -1,8 +1,10 @@
+import { Audio } from "expo-av";
 import { router } from "expo-router";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import OpenAI from "openai"; // expo compatible
 import { useState } from "react";
 import { Button, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { generateVoice } from "../lib/generate-voice-fetch";
 import { useAuth } from "../src/context/AuthContext";
 import { db } from "../src/firebase/config";
 
@@ -28,6 +30,7 @@ export default function Recipes() {
         "steps": []
       }
     `;
+
 
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
@@ -68,7 +71,18 @@ export default function Recipes() {
     setRecipes(finalRecipes);
     setLoading(false);
   };
+    const handleGenerate = async () => {
+    try {
+      const fileUri = await generateVoice("This dish is DISGUSTING!");
+      console.log("Playing:", fileUri);
 
+      const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
+      await sound.playAsync();
+
+    } catch (err) {
+      console.log("Audio error:", err);
+    }
+  };
   const saveRecipe = async (recipe: any) => {
     if (!user) {
       console.log("❌ No user found — cannot save recipe");
@@ -113,6 +127,7 @@ export default function Recipes() {
         }}
       />
 
+    <Button title="Generate Gordon" onPress={handleGenerate} />
       <Button title="Generate Recipes" onPress={generateRecipes} />
       <View style={{ width: "100%", marginTop: 20 }}>
               <Button
