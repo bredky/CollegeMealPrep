@@ -1,0 +1,9 @@
+import { Redirect } from "expo-router";
+import { useAuth } from "../src/context/AuthContext";
+
+export default function Index() {
+  const { user } = useAuth() as any;
+
+  if (user) return <Redirect href="/settings" />;
+  return <Redirect href="/login" />;
+}
