@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../../src/context/AuthContext";
 import { db } from "../../src/firebase/config";
 
@@ -30,7 +30,7 @@ export default function SavedRecipes() {
       {/* Back Button */}
       <TouchableOpacity 
         onPress={() => router.back()}
-        style={{ marginBottom: 20, marginTop: 10 }}
+        style={{ marginBottom: 20, marginTop: 30 }}
       >
         <Text style={{ fontSize: 18, color: "#4a90e2", fontWeight: "600" }}>← Back</Text>
       </TouchableOpacity>
@@ -83,6 +83,19 @@ export default function SavedRecipes() {
             <Text style={{ fontSize: 20, fontWeight: "700", color: "#000", marginBottom: 8 }}>
               {r.title}
             </Text>
+            {r.image && (
+              <Image
+                source={{ uri: r.image }}
+                style={{
+                  width: "100%",
+                  height: 180,
+                  borderRadius: 10,
+                  marginTop: 8,
+                  marginBottom: 8,
+                }}
+                resizeMode="cover"
+              />
+            )}
             <Text style={{ marginTop: 6, color: "#666", fontSize: 14 }}>{r.description}</Text>
 
             <TouchableOpacity

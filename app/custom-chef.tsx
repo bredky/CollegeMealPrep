@@ -167,7 +167,7 @@ export default function CustomChef() {
       {/* Back Button */}
       <TouchableOpacity 
         onPress={() => router.back()}
-        style={{ marginBottom: 20, marginTop: 10 }}
+        style={{ marginBottom: 20, marginTop: 30 }}
       >
         <Text style={{ fontSize: 18, color: "#4a90e2", fontWeight: "600" }}>← Back</Text>
       </TouchableOpacity>

@@ -1,21 +1,32 @@
 import { router } from "expo-router";
 import { doc, updateDoc } from "firebase/firestore";
-import React, { useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
 import { useAuth } from "../src/context/AuthContext";
 import { db } from "../src/firebase/config";
 
 export default function Settings() {
   const { user, profile, logout } = useAuth();
-  const [dietary, setDietary] = useState(profile?.dietary ?? "");
-  const [allergies, setAllergies] = useState(profile?.allergies ?? "");
+  const [dietary, setDietary] = useState("");
+  const [allergies, setAllergies] = useState("");
   const [editing, setEditing] = useState(false);
+
+  // Update state when profile changes
+  useEffect(() => {
+    if (profile) {
+      setDietary(profile.dietary || "");
+      setAllergies(profile.allergies || "");
+    }
+  }, [profile]);
 
   const savePreferences = async () => {
     if (!user) return;
     try {
       const ref = doc(db, "users", user.uid);
-      await updateDoc(ref, { dietary, allergies });
+      await updateDoc(ref, { 
+        dietary: dietary.trim(), 
+        allergies: allergies.trim() 
+      });
       setEditing(false);
     } catch (err) {
       console.log("Failed to update preferences:", err);
@@ -46,104 +57,23 @@ export default function Settings() {
         marginBottom: 20,
         color: "#000",
       }}>
-        Welcome
+        Welcome {profile?.name || user?.email?.split("@")[0] || "User"}
       </Text>
 
-      {/* Fruit Basket Illustration */}
+      {/* Fruit Bowl Image */}
       <View style={{ 
         alignItems: "center", 
         marginBottom: 30,
-        height: 150,
         justifyContent: "center",
       }}>
-        <View style={{
-          width: 200,
-          height: 120,
-          position: "relative",
-        }}>
-          {/* Basket */}
-          <View style={{
-            position: "absolute",
-            bottom: 0,
-            left: 20,
-            width: 160,
-            height: 80,
-            backgroundColor: "#d4a574",
-            borderRadius: 8,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-          }}>
-            {/* Basket weave pattern */}
-            <View style={{
-              position: "absolute",
-              top: 10,
-              left: 10,
-              width: 140,
-              height: 2,
-              backgroundColor: "#b8956a",
-            }} />
-            <View style={{
-              position: "absolute",
-              top: 20,
-              left: 10,
-              width: 140,
-              height: 2,
-              backgroundColor: "#b8956a",
-            }} />
-          </View>
-          {/* Fruits - simplified representation */}
-          {/* Apple */}
-          <View style={{
-            position: "absolute",
-            bottom: 50,
-            left: 30,
-            width: 25,
-            height: 25,
-            borderRadius: 12.5,
-            backgroundColor: "#ff6b6b",
-          }} />
-          {/* Grapes */}
-          <View style={{
-            position: "absolute",
-            bottom: 60,
-            left: 60,
-            width: 20,
-            height: 20,
-            borderRadius: 10,
-            backgroundColor: "#9b59b6",
-          }} />
-          {/* Banana */}
-          <View style={{
-            position: "absolute",
-            bottom: 70,
-            left: 90,
-            width: 30,
-            height: 15,
-            borderRadius: 15,
-            backgroundColor: "#f1c40f",
-            transform: [{ rotate: "-30deg" }],
-          }} />
-          {/* Pineapple */}
-          <View style={{
-            position: "absolute",
-            bottom: 65,
-            left: 120,
-            width: 25,
-            height: 30,
-            borderRadius: 12,
-            backgroundColor: "#f39c12",
-          }} />
-          {/* Pear */}
-          <View style={{
-            position: "absolute",
-            bottom: 55,
-            right: 30,
-            width: 22,
-            height: 28,
-            borderRadius: 11,
-            backgroundColor: "#2ecc71",
-          }} />
-        </View>
+        <Image
+          source={require("../assets/images/fruitbowl.png")}
+          style={{
+            width: 200,
+            height: 150,
+            resizeMode: "contain",
+          }}
+        />
       </View>
 
       {/* Profile Card */}
@@ -249,18 +179,6 @@ export default function Settings() {
       {/* Links Section */}
       <View style={{ width: "100%", alignItems: "center" }}>
         <TouchableOpacity
-          onPress={async () => {
-            await logout();
-            router.replace("/login");
-          }}
-          style={{ marginBottom: 16 }}
-        >
-          <Text style={{ color: "#d9534f", fontSize: 16, fontWeight: "600" }}>
-            Logout
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           onPress={() => router.push("/recipes")}
           style={{ marginBottom: 16, flexDirection: "row", alignItems: "center" }}
         >
@@ -278,9 +196,21 @@ export default function Settings() {
           </Text>
         </TouchableOpacity>
 
-        <Text style={{ fontSize: 20, fontWeight: "700", color: "#000", marginTop: 20 }}>
-          Settings
+        <Text style={{ fontSize: 20, fontWeight: "700", color: "#000", marginTop: 20, marginBottom: 20 }}>
+          Preferences
         </Text>
+
+        <TouchableOpacity
+          onPress={async () => {
+            await logout();
+            router.replace("/login");
+          }}
+          style={{ marginTop: 20 }}
+        >
+          <Text style={{ color: "#d9534f", fontSize: 16, fontWeight: "600" }}>
+            Logout
+          </Text>
+        </TouchableOpacity>
       </View>
         </ScrollView>
       </TouchableWithoutFeedback>

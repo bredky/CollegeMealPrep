@@ -261,7 +261,7 @@ ${parsed.steps.join("\n")}
           showsVerticalScrollIndicator={false}
         >
           {/* Header with Back Button and Chef Selector */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20, marginTop: 10 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20, marginTop: 30 }}>
             <TouchableOpacity onPress={() => router.back()}>
               <Text style={{ fontSize: 18, color: "#4a90e2", fontWeight: "600" }}>← Back</Text>
             </TouchableOpacity>

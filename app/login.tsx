@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
+import { Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
 import { useAuth } from "../src/context/AuthContext";
 
 export default function LoginScreen() {
@@ -32,64 +32,15 @@ export default function LoginScreen() {
         >
       {/* Logo */}
       <View style={{ marginBottom: 20, alignItems: "center" }}>
-        <View style={{ 
-          width: 140, 
-          height: 140, 
-          justifyContent: "center", 
-          alignItems: "center",
-          marginBottom: 20,
-          position: "relative",
-        }}>
-          {/* Frying Pan */}
-          <View style={{ 
-            width: 100, 
-            height: 100, 
-            borderRadius: 50, 
-            backgroundColor: "#4a4a4a", 
-            justifyContent: "center", 
-            alignItems: "center",
-            position: "relative",
-          }}>
-            {/* Inner pan surface */}
-            <View style={{ 
-              width: 80, 
-              height: 80, 
-              borderRadius: 40, 
-              backgroundColor: "#6a6a6a", 
-            }} />
-            {/* Egg white */}
-            <View style={{ 
-              position: "absolute",
-              width: 60,
-              height: 50,
-              borderRadius: 30,
-              backgroundColor: "#f5f8fa",
-              top: 20,
-              left: 20,
-            }}>
-              {/* Egg yolk */}
-              <View style={{ 
-                position: "absolute", 
-                top: 15, 
-                left: 20, 
-                width: 20, 
-                height: 20, 
-                borderRadius: 10, 
-                backgroundColor: "#ff9800" 
-              }} />
-            </View>
-            {/* Handle */}
-            <View style={{ 
-              position: "absolute", 
-              right: -30, 
-              top: 35, 
-              width: 35, 
-              height: 12, 
-              backgroundColor: "#4a4a4a", 
-              borderRadius: 6 
-            }} />
-          </View>
-        </View>
+        <Image
+          source={require("../assets/images/SousChefIcon.png")}
+          style={{
+            width: 200,
+            height: 200,
+            resizeMode: "contain",
+            marginBottom: 20,
+          }}
+        />
         <View style={{ alignItems: "center" }}>
           <Text style={{ 
             fontSize: 28, 

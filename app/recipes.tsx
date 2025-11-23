@@ -10,7 +10,7 @@ import CameraPopup from "./CameraPopup"; //added for CameraPopup.jsx
 
 export default function Recipes() {
   
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [input, setInput] = useState("");
   const [dishGoal, setDishGoal] = useState("");
   const [recipes, setRecipes] = useState<any[]>([]);
@@ -113,13 +113,17 @@ const goToRecipe = (recipe: { title: string; }) => {
     setLoading(true);
     setRecipes([]);
 
+    const dietaryInfo = profile?.dietary ? `Dietary restrictions: ${profile.dietary}. ` : "";
+    const allergyInfo = profile?.allergies ? `Allergies to avoid: ${profile.allergies}. ` : "";
+    const dietaryAllergyNote = (dietaryInfo || allergyInfo) ? `\n\nIMPORTANT: ${dietaryInfo}${allergyInfo}All recipes MUST comply with these restrictions and avoid any allergens.` : "";
+
     const prompt = `
 You are a world-class chef. You must create 5 recipes using ONLY these ingredients:
 
 ${input}
 
 User request (may be empty):
-${dishGoal || "None"}
+${dishGoal || "None"}${dietaryAllergyNote}
 
 Your job:
 - try and use the ingredients provided, u dont have to use all of them, you can add a few extras only if needed
@@ -260,65 +264,23 @@ Return JSON in exactly this format:
       {/* Back Button */}
       <TouchableOpacity 
         onPress={() => router.back()}
-        style={{ marginBottom: 20, marginTop: 10 }}
+        style={{ marginBottom: 20, marginTop: 30 }}
       >
         <Text style={{ fontSize: 18, color: "#4a90e2", fontWeight: "600" }}>← Back</Text>
       </TouchableOpacity>
 
-      {/* Header with Egg Halves Icon and Title */}
+      {/* Header with Eggs Image and Title */}
       <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20, marginTop: 0 }}>
-        {/* Two Egg Halves Icon */}
-        <View style={{ marginRight: 12, position: "relative", width: 60, height: 50 }}>
-          {/* Top egg half */}
-          <View style={{
-            position: "absolute",
-            top: 0,
-            left: 5,
-            width: 40,
-            height: 25,
-            borderRadius: 20,
-            backgroundColor: "#f5f8fa",
-            borderWidth: 2,
-            borderColor: "#000",
-            borderBottomWidth: 0,
-            borderBottomLeftRadius: 0,
-            borderBottomRightRadius: 0,
-          }}>
-            <View style={{
-              position: "absolute",
-              top: 8,
-              left: 15,
-              width: 12,
-              height: 12,
-              borderRadius: 6,
-              backgroundColor: "#ffa726",
-            }} />
-          </View>
-          {/* Bottom egg half */}
-          <View style={{
-            position: "absolute",
-            top: 20,
-            left: 10,
-            width: 40,
-            height: 25,
-            borderRadius: 20,
-            backgroundColor: "#f5f8fa",
-            borderWidth: 2,
-            borderColor: "#000",
-            borderTopWidth: 0,
-            borderTopLeftRadius: 0,
-            borderTopRightRadius: 0,
-          }}>
-            <View style={{
-              position: "absolute",
-              top: 5,
-              left: 15,
-              width: 12,
-              height: 12,
-              borderRadius: 6,
-              backgroundColor: "#ffa726",
-            }} />
-          </View>
+        {/* Eggs Image */}
+        <View style={{ marginRight: 12 }}>
+          <Image
+            source={require("../assets/images/eggs.png")}
+            style={{
+              width: 60,
+              height: 50,
+              resizeMode: "contain",
+            }}
+          />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 26, fontWeight: "700", color: "#000" }}>
@@ -439,12 +401,6 @@ Return JSON in exactly this format:
       {/* Customize Section */}
       <Text style={{ fontSize: 18, fontWeight: "700", color: "#4a90e2", marginBottom: 12 }}>
         Customize
-      </Text>
-      <Text style={{ fontSize: 14, color: "#999", marginBottom: 8 }}>
-        Add Ingredients (optional)
-      </Text>
-      <Text style={{ fontSize: 14, color: "#999", marginBottom: 12 }}>
-        What kind of dish are you thinking of?(optional)
       </Text>
 
       {/* Input Fields */}
