@@ -55,7 +55,12 @@ export default function SavedRecipes() {
             justifyContent: "center",
             alignItems: "center",
           }}>
-            <Text style={{ fontSize: 24, color: "#ffa726" }}>⭐</Text>
+            <View style={{
+              width: 20,
+              height: 20,
+              backgroundColor: "#ffa726",
+              borderRadius: 10,
+            }} />
           </View>
         </View>
       </View>
@@ -93,7 +98,7 @@ export default function SavedRecipes() {
               }}
             >
               <Text style={{ color: "white", textAlign: "center", fontWeight: "600" }}>
-                Cook This Recipe 🍳
+                Cook This Recipe
               </Text>
             </TouchableOpacity>
           </View>

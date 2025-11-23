@@ -264,10 +264,9 @@ export default function Settings() {
           onPress={() => router.push("/recipes")}
           style={{ marginBottom: 16, flexDirection: "row", alignItems: "center" }}
         >
-          <Text style={{ color: "#4a90e2", fontSize: 16, fontWeight: "600", marginRight: 8 }}>
+          <Text style={{ color: "#4a90e2", fontSize: 16, fontWeight: "600" }}>
             Build Your Recipe
           </Text>
-          <Text style={{ fontSize: 20 }}>🍴</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

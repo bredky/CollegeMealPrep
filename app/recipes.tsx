@@ -346,7 +346,6 @@ Return JSON in exactly this format:
           justifyContent: "center",
         }}
       >
-        <Text style={{ fontSize: 20, marginRight: 8 }}>📷</Text>
         <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>
           Upload Photo of Ingredients
         </Text>
@@ -380,7 +379,12 @@ Return JSON in exactly this format:
               justifyContent: "center",
               alignItems: "center",
             }}>
-              <Text style={{ color: "#4a90e2", fontSize: 12 }}>✓</Text>
+              <View style={{
+                width: 12,
+                height: 12,
+                borderRadius: 6,
+                backgroundColor: "#4a90e2",
+              }} />
             </View>
             <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>
               Use This Photo
@@ -548,7 +552,7 @@ Return JSON in exactly this format:
               }}
             >
               <Text style={{ color: "white", fontWeight: "700", textAlign: "center" }}>
-                Save Recipe ⭐
+                Save Recipe
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -561,7 +565,7 @@ Return JSON in exactly this format:
               }}
             >
               <Text style={{ color: "white", fontWeight: "700", textAlign: "center" }}>
-                Cook This 🍳
+                Cook This
               </Text>
             </TouchableOpacity>
           </View>

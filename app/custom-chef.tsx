@@ -139,7 +139,7 @@ export default function CustomChef() {
         prompt: chefPrompt,
         createdAt: serverTimestamp(),
       });
-      setStatus("🎉 Custom Chef Created Successfully!");
+      setStatus("Custom Chef Created Successfully!");
     } catch (err) {
       console.log("Custom chef create error:", err);
       setStatus("Failed to create chef.");
@@ -301,7 +301,7 @@ export default function CustomChef() {
           }}
         >
           <Text style={{ color: "white", textAlign: "center", fontSize: 16, fontWeight: "600" }}>
-            {isRecording ? "Release to stop recording…" : "🎤 Hold to record voice sample"}
+            {isRecording ? "Release to stop recording…" : "Hold to record voice sample"}
           </Text>
         </TouchableOpacity>
 
@@ -315,13 +315,13 @@ export default function CustomChef() {
           }}
         >
           <Text style={{ color: "white", textAlign: "center", fontSize: 16, fontWeight: "600" }}>
-            📁 Upload audio file
+            Upload audio file
           </Text>
         </TouchableOpacity>
 
         {sampleUri && (
           <Text style={{ color: "#4caf50", marginBottom: 10, fontSize: 14 }}>
-            Voice sample recorded ✔
+            Voice sample recorded
           </Text>
         )}
 

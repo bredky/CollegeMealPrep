@@ -288,7 +288,12 @@ ${parsed.steps.join("\n")}
                   resizeMode="cover"
                 />
               ) : (
-                <Text style={{ fontSize: 20 }}>👨‍🍳</Text>
+                <View style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  backgroundColor: "#ddd",
+                }} />
               )}
             </TouchableOpacity>
           </View>
@@ -403,7 +408,12 @@ ${parsed.steps.join("\n")}
               alignItems: "center",
             }}
           >
-            <Text style={{ color: recording ? "#fff" : "#4a90e2", fontSize: 20 }}>🎤</Text>
+            <View style={{
+              width: 20,
+              height: 20,
+              borderRadius: 10,
+              backgroundColor: recording ? "#fff" : "#4a90e2",
+            }} />
           </TouchableOpacity>
 
           {/* Next Step Button */}
@@ -457,7 +467,7 @@ ${parsed.steps.join("\n")}
                 onPress={() => setChefModalVisible(false)}
                 style={{ alignSelf: "flex-end", marginBottom: 20 }}
               >
-                <Text style={{ fontSize: 24, color: "#4a90e2" }}>✕</Text>
+                <Text style={{ fontSize: 24, color: "#4a90e2", fontWeight: "600" }}>×</Text>
               </TouchableOpacity>
 
               {/* Current Chef Display */}
@@ -479,7 +489,12 @@ ${parsed.steps.join("\n")}
                       alignItems: "center",
                       marginBottom: 12,
                     }}>
-                      <Text style={{ fontSize: 40 }}>👨‍🍳</Text>
+                      <View style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: 40,
+                        backgroundColor: "#ccc",
+                      }} />
                     </View>
                   )}
                   <Text style={{ fontSize: 24, fontWeight: "700", color: "#000" }}>
@@ -530,7 +545,12 @@ ${parsed.steps.join("\n")}
                           alignItems: "center",
                           marginRight: 12,
                         }}>
-                          <Text style={{ fontSize: 20 }}>👨‍🍳</Text>
+                          <View style={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: 15,
+                            backgroundColor: "#aaa",
+                          }} />
                         </View>
                       )}
                       <Text style={{
@@ -574,7 +594,12 @@ ${parsed.steps.join("\n")}
                         alignItems: "center",
                         marginRight: 12,
                       }}>
-                        <Text style={{ fontSize: 20 }}>👨‍🍳</Text>
+                        <View style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 15,
+                          backgroundColor: "#aaa",
+                        }} />
                       </View>
                       <Text style={{
                         fontSize: 18,

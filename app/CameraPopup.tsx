@@ -96,7 +96,7 @@ export default function CameraPopup({ visible, onClose }: CameraPopupProps) {
         )}
         
         <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
-          <Text style={styles.closeIconText}>❌ Close</Text>
+          <Text style={styles.closeIconText}>Close</Text>
         </TouchableOpacity>
       </View>
     </Modal>
