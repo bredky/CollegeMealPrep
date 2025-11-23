@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
 import OpenAI from "openai";
 import { SetStateAction, useEffect, useRef, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Image, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { CHEFS } from "../../lib/chefs";
 import { generateVoice } from "../../lib/generate-voice-fetch";
 import { useAuth } from "../../src/context/AuthContext";
@@ -67,6 +67,9 @@ export default function RecipeDetail() {
   // Recording state
   const [recording, setRecording] = useState<any>(null);
   const recordingRef = useRef<any>(null);
+
+  // Chef selection modal state
+  const [chefModalVisible, setChefModalVisible] = useState(false);
 
   // -------------------------
   // PLAY CURRENT STEP
@@ -230,149 +233,364 @@ ${parsed.steps.join("\n")}
   };
 
   // -------------------------
+  // GET CHEF IMAGE
+  // -------------------------
+  const getChefImage = () => {
+    if (!chef) return null;
+    if (chef.image) {
+      // Built-in chef with require() image
+      return chef.image;
+    }
+    // Custom chef might have image URL (for now return null as user mentioned)
+    return null;
+  };
+
+  // -------------------------
   // UI
   // -------------------------
   return (
-    <ScrollView style={{ flex: 1, padding: 20 }}>
-      <TouchableOpacity onPress={() => router.back()}>
-        <Text style={{ fontSize: 16, color: "#555" }}>← Back</Text>
-      </TouchableOpacity>
+    <KeyboardAvoidingView 
+      style={{ flex: 1, backgroundColor: "#d4e0ed" }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+    >
+      <View style={{ flex: 1 }}>
+        <ScrollView 
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 24, paddingBottom: 120 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header with Back Button and Chef Selector */}
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20, marginTop: 10 }}>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Text style={{ fontSize: 18, color: "#4a90e2", fontWeight: "600" }}>← Back</Text>
+            </TouchableOpacity>
 
-      {/* --- CHEF SELECTOR --- */}
-      <View style={{ marginTop: 15, marginBottom: 15 }}>
-        <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 8 }}>
-          Choose Your Chef
-        </Text>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {/* Built-in chefs */}
-          {Object.entries(CHEFS).map(([id, c]) => (
+            {/* Chef Selector Button - Top Right */}
             <TouchableOpacity
-              key={id}
-              onPress={() => setChefId(id as BuiltInChefId)}
+              onPress={() => setChefModalVisible(true)}
               style={{
-                paddingVertical: 10,
-                paddingHorizontal: 16,
-                backgroundColor: chefId === id ? "#4caf50" : "#ddd",
-                borderRadius: 12,
-                marginRight: 10,
+                width: 50,
+                height: 50,
+                borderRadius: 25,
+                backgroundColor: "#f5f8fa",
+                borderWidth: 2,
+                borderColor: "#4a90e2",
+                overflow: "hidden",
+                justifyContent: "center",
+                alignItems: "center",
               }}
             >
-              <Text style={{ fontWeight: "600" }}>{c.name}</Text>
+              {chef && getChefImage() ? (
+                <Image
+                  source={getChefImage()}
+                  style={{ width: "100%", height: "100%", borderRadius: 25 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={{ fontSize: 20 }}>👨‍🍳</Text>
+              )}
             </TouchableOpacity>
-          ))}
+          </View>
 
-          {/* Custom chefs */}
-          {customChefs.map((c) => (
-            <TouchableOpacity
-              key={c.id}
-              onPress={() => setChefId(`custom-${c.id}` as CustomChefId)}
-              style={{
-                paddingVertical: 10,
-                paddingHorizontal: 16,
-                backgroundColor:
-                  chefId === `custom-${c.id}` ? "#4caf50" : "#ddd",
-                borderRadius: 12,
-                marginRight: 10,
-              }}
-            >
-              <Text style={{ fontWeight: "600" }}>{c.name}</Text>
-            </TouchableOpacity>
-          ))}
+          {/* Recipe Title */}
+          <Text style={{ fontSize: 32, fontWeight: "700", marginBottom: 10, color: "#000" }}>
+            {parsed.title}
+          </Text>
+
+          {/* Description */}
+          <Text style={{ marginTop: 10, fontSize: 18, color: "#444", marginBottom: 20 }}>
+            {parsed.description}
+          </Text>
+
+          {/* Ingredients Section */}
+          <View style={{
+            backgroundColor: "#f5f8fa",
+            padding: 20,
+            borderRadius: 16,
+            marginBottom: 20,
+            borderWidth: 1,
+            borderColor: "#e0e0e0",
+          }}>
+            <Text style={{ fontSize: 20, fontWeight: "700", marginBottom: 12, color: "#000" }}>
+              Ingredients
+            </Text>
+            {parsed.ingredients.map((i: string, idx: number) => (
+              <Text key={idx} style={{ marginTop: 6, fontSize: 16, color: "#444" }}>
+                • {i}
+              </Text>
+            ))}
+          </View>
+
+          {/* Current Step Section */}
+          <View style={{
+            backgroundColor: "#f5f8fa",
+            padding: 20,
+            borderRadius: 16,
+            marginBottom: 20,
+            borderWidth: 1,
+            borderColor: "#e0e0e0",
+          }}>
+            <Text style={{ fontSize: 20, fontWeight: "700", marginBottom: 8, color: "#000" }}>
+              Step {stepIndex + 1} of {parsed.steps.length}
+            </Text>
+            <Text style={{ marginTop: 10, fontSize: 18, color: "#444", lineHeight: 26 }}>
+              {parsed.steps[stepIndex]}
+            </Text>
+          </View>
         </ScrollView>
-      </View>
 
-      <Text style={{ fontSize: 30, fontWeight: "800", marginTop: 10 }}>
-        {parsed.title}
-      </Text>
+        {/* Bottom Control Buttons - Fixed at Bottom */}
+        <View style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: "#d4e0ed",
+          paddingVertical: 20,
+          paddingHorizontal: 24,
+          borderTopWidth: 1,
+          borderTopColor: "#e0e0e0",
+          flexDirection: "row",
+          justifyContent: "space-around",
+          alignItems: "center",
+        }}>
+          {/* Previous Step Button */}
+          <TouchableOpacity
+            disabled={stepIndex === 0}
+            onPress={() => setStepIndex(stepIndex - 1)}
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: 25,
+              backgroundColor: stepIndex === 0 ? "#ccc" : "#f5f8fa",
+              borderWidth: 2,
+              borderColor: stepIndex === 0 ? "#999" : "#4a90e2",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: stepIndex === 0 ? "#999" : "#4a90e2", fontSize: 20, fontWeight: "600" }}>←</Text>
+          </TouchableOpacity>
 
-      <Text style={{ marginTop: 10, fontSize: 18, color: "#444" }}>
-        {parsed.description}
-      </Text>
+          {/* Play Step Button */}
+          <TouchableOpacity
+            onPress={speakStep}
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: 30,
+              backgroundColor: "#4a90e2",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#fff", fontSize: 24 }}>▶</Text>
+          </TouchableOpacity>
 
-      <Text style={{ marginTop: 20, fontSize: 20, fontWeight: "700" }}>
-        Ingredients
-      </Text>
+          {/* Hold to Talk Button */}
+          <TouchableOpacity
+            onPressIn={startRecording}
+            onPressOut={stopRecording}
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: 25,
+              backgroundColor: recording ? "#d9534f" : "#f5f8fa",
+              borderWidth: 2,
+              borderColor: recording ? "#b71c1c" : "#4a90e2",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: recording ? "#fff" : "#4a90e2", fontSize: 20 }}>🎤</Text>
+          </TouchableOpacity>
 
-      {parsed.ingredients.map((i: string, idx: number) => (
-        <Text key={idx} style={{ marginTop: 4, fontSize: 16 }}>
-          • {i}
-        </Text>
-      ))}
+          {/* Next Step Button */}
+          <TouchableOpacity
+            disabled={stepIndex === parsed.steps.length - 1}
+            onPress={() => setStepIndex(stepIndex + 1)}
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: 25,
+              backgroundColor: stepIndex === parsed.steps.length - 1 ? "#ccc" : "#f5f8fa",
+              borderWidth: 2,
+              borderColor: stepIndex === parsed.steps.length - 1 ? "#999" : "#4a90e2",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: stepIndex === parsed.steps.length - 1 ? "#999" : "#4a90e2", fontSize: 20, fontWeight: "600" }}>→</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* -------- CURRENT STEP -------- */}
-      <Text style={{ marginTop: 30, fontSize: 20, fontWeight: "700" }}>
-        Step {stepIndex + 1} of {parsed.steps.length}
-      </Text>
-
-      <Text style={{ marginTop: 10, fontSize: 18 }}>
-        {parsed.steps[stepIndex]}
-      </Text>
-
-      {/* Play Step Button */}
-      <TouchableOpacity
-        onPress={speakStep}
-        style={{
-          marginTop: 20,
-          backgroundColor: "#2196f3",
-          padding: 14,
-          borderRadius: 10,
-        }}
-      >
-        <Text style={{ color: "white", textAlign: "center", fontWeight: "600" }}>
-          ▶️ Play This Step
-        </Text>
-      </TouchableOpacity>
-
-      {/* chef AI Button */}
-      <TouchableOpacity
-        onPressIn={startRecording}
-        onPressOut={stopRecording}
-        style={{
-          marginTop: 20,
-          backgroundColor: recording ? "#b71c1c" : "#e53935",
-          padding: 18,
-          borderRadius: 50,
-        }}
-      >
-        <Text style={{ color: "white", textAlign: "center", fontSize: 18 }}>
-          🎤 Hold to Ask Chef
-        </Text>
-      </TouchableOpacity>
-
-      {/* Navigation */}
-      <View style={{ flexDirection: "row", marginTop: 20, gap: 10 }}>
-        <TouchableOpacity
-          disabled={stepIndex === 0}
-          onPress={() => setStepIndex(stepIndex - 1)}
-          style={{
-            flex: 1,
-            backgroundColor: stepIndex === 0 ? "#ccc" : "#9e9e9e",
-            padding: 14,
-            borderRadius: 10,
-          }}
+        {/* Chef Selection Modal */}
+        <Modal
+          visible={chefModalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setChefModalVisible(false)}
         >
-          <Text style={{ textAlign: "center", color: "white", fontWeight: "600" }}>
-            ⬅ Previous
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              justifyContent: "flex-end",
+            }}
+            activeOpacity={1}
+            onPress={() => setChefModalVisible(false)}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+              style={{
+                backgroundColor: "#f5f8fa",
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                height: "60%",
+                padding: 24,
+              }}
+            >
+              {/* Close Button */}
+              <TouchableOpacity
+                onPress={() => setChefModalVisible(false)}
+                style={{ alignSelf: "flex-end", marginBottom: 20 }}
+              >
+                <Text style={{ fontSize: 24, color: "#4a90e2" }}>✕</Text>
+              </TouchableOpacity>
 
-        <TouchableOpacity
-          disabled={stepIndex === parsed.steps.length - 1}
-          onPress={() => setStepIndex(stepIndex + 1)}
-          style={{
-            flex: 1,
-            backgroundColor:
-              stepIndex === parsed.steps.length - 1 ? "#ccc" : "#4caf50",
-            padding: 14,
-            borderRadius: 10,
-          }}
-        >
-          <Text style={{ textAlign: "center", color: "white", fontWeight: "600" }}>
-            Next ➡
-          </Text>
-        </TouchableOpacity>
+              {/* Current Chef Display */}
+              {chef && (
+                <View style={{ alignItems: "center", marginBottom: 30 }}>
+                  {getChefImage() ? (
+                    <Image
+                      source={getChefImage()}
+                      style={{ width: 120, height: 120, borderRadius: 60, marginBottom: 12 }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={{
+                      width: 120,
+                      height: 120,
+                      borderRadius: 60,
+                      backgroundColor: "#ddd",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginBottom: 12,
+                    }}>
+                      <Text style={{ fontSize: 40 }}>👨‍🍳</Text>
+                    </View>
+                  )}
+                  <Text style={{ fontSize: 24, fontWeight: "700", color: "#000" }}>
+                    {chef.name}
+                  </Text>
+                </View>
+              )}
+
+              {/* Chef List */}
+              <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 16, color: "#000" }}>
+                Select a Chef
+              </Text>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Built-in Chefs */}
+                {Object.entries(CHEFS).map(([id, c]) => {
+                  const isSelected = chefId === id;
+                  return (
+                    <TouchableOpacity
+                      key={id}
+                      onPress={() => {
+                        setChefId(id as BuiltInChefId);
+                        setChefModalVisible(false);
+                      }}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        padding: 16,
+                        backgroundColor: isSelected ? "#e3f2fd" : "#fff",
+                        borderRadius: 12,
+                        marginBottom: 12,
+                        borderWidth: isSelected ? 2 : 1,
+                        borderColor: isSelected ? "#4a90e2" : "#e0e0e0",
+                      }}
+                    >
+                      {c.image ? (
+                        <Image
+                          source={c.image}
+                          style={{ width: 50, height: 50, borderRadius: 25, marginRight: 12 }}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={{
+                          width: 50,
+                          height: 50,
+                          borderRadius: 25,
+                          backgroundColor: "#ddd",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          marginRight: 12,
+                        }}>
+                          <Text style={{ fontSize: 20 }}>👨‍🍳</Text>
+                        </View>
+                      )}
+                      <Text style={{
+                        fontSize: 18,
+                        fontWeight: isSelected ? "700" : "600",
+                        color: isSelected ? "#4a90e2" : "#000",
+                      }}>
+                        {c.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                {/* Custom Chefs */}
+                {customChefs.map((c) => {
+                  const isSelected = chefId === `custom-${c.id}`;
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      onPress={() => {
+                        setChefId(`custom-${c.id}` as CustomChefId);
+                        setChefModalVisible(false);
+                      }}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        padding: 16,
+                        backgroundColor: isSelected ? "#e3f2fd" : "#fff",
+                        borderRadius: 12,
+                        marginBottom: 12,
+                        borderWidth: isSelected ? 2 : 1,
+                        borderColor: isSelected ? "#4a90e2" : "#e0e0e0",
+                      }}
+                    >
+                      <View style={{
+                        width: 50,
+                        height: 50,
+                        borderRadius: 25,
+                        backgroundColor: "#ddd",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        marginRight: 12,
+                      }}>
+                        <Text style={{ fontSize: 20 }}>👨‍🍳</Text>
+                      </View>
+                      <Text style={{
+                        fontSize: 18,
+                        fontWeight: isSelected ? "700" : "600",
+                        color: isSelected ? "#4a90e2" : "#000",
+                      }}>
+                        {c.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
       </View>
-    </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
