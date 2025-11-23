@@ -1,11 +1,9 @@
-import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system/legacy";
 import { router } from "expo-router";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import OpenAI from "openai"; // expo compatible
 import { useState } from "react";
 import { Button, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { generateVoice } from "../lib/generate-voice-fetch";
 import { useAuth } from "../src/context/AuthContext";
 import { db } from "../src/firebase/config";
 import CameraPopup from "./CameraPopup"; //added for CameraPopup.jsx
@@ -220,18 +218,6 @@ Return JSON in exactly this format:
         return null;
       }
     }
-    const handleGenerate = async () => {
-    try {
-      const fileUri = await generateVoice("This dish is DISGUSTING!");
-      console.log("Playing:", fileUri);
-
-      const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
-      await sound.playAsync();
-
-    } catch (err) {
-      console.log("Audio error:", err);
-    }
-  };
   const saveRecipe = async (recipe: any) => {
     if (!user) {
       console.log("❌ No user found — cannot save recipe");

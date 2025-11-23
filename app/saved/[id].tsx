@@ -8,6 +8,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { CHEFS } from "../../lib/chefs";
 import { generateVoice } from "../../lib/generate-voice-fetch";
 
 const openai = new OpenAI({
@@ -17,7 +18,9 @@ const openai = new OpenAI({
 export default function RecipeDetail() {
   const { recipe } = useLocalSearchParams();
   const parsed = JSON.parse(recipe as string);
-
+  type ChefId = keyof typeof CHEFS;
+  const [chefId, setChefId] = useState<ChefId>("gordon");
+  const chef = CHEFS[chefId];
   const [stepIndex, setStepIndex] = useState(0);
 
   // Recording state
@@ -30,7 +33,7 @@ export default function RecipeDetail() {
   const speakStep = async () => {
     try {
       const text = parsed.steps[stepIndex];
-      const fileUri = await generateVoice(text);
+      const fileUri = await generateVoice(text, chef.voiceId);
       
       const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
       await sound.playAsync();
@@ -137,71 +140,61 @@ export default function RecipeDetail() {
   // ---------------------------------------
   // 4. Ask GPT as Gordon Ramsay
   // ---------------------------------------
-  const getGordonReply = async (userText: string) => {
-    console.log(" Asking Gordon:", userText);
-
-    const systemPrompt = `
-You are Gordon Ramsay. 
-You MUST respond in Gordon Ramsay's tone:
-- direct
-- helpful
-- a bit insulting but not abusive
-- short (1–3 sentences)
-- extremely clear cooking guidance
+const getChefReply = async (userText: string) => {
+  const systemPrompt = `
+${chef.prompt}
 
 Recipe Title: ${parsed.title}
-Recipe Description: ${parsed.description}
 Current Step (${stepIndex + 1}): ${parsed.steps[stepIndex]}
 
 Full Steps:
 ${parsed.steps.join("\n")}
-`;
+  `;
 
-    const resp = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userText },
-      ],
-    });
+  const resp = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userText },
+    ],
+  });
 
-    const answer = resp.choices[0].message.content;
-    console.log("Gordon says:", answer);
-    return answer;
-  };
+  return resp.choices[0].message.content;
+};
 
   // ---------------------------------------
-  // 5. Speak using Fish TTS Gordon voice
+  // 5. Speak using Fish TTS Chef voice
   // ---------------------------------------
-    const speakAsGordon = async (text: string) => {
-    await Audio.setAudioModeAsync({
+    const speakAsChef = async (text: string) => {
+  await Audio.setAudioModeAsync({
     allowsRecordingIOS: false,
     playsInSilentModeIOS: true,
-    });
+  });
 
-    const fileUri = await generateVoice(text);
-    const { sound } = await Audio.Sound.createAsync(
-        { uri: fileUri },
-        { shouldPlay: true, volume: 1.0 }
-    );
+  const fileUri = await generateVoice(text, chef.voiceId);
 
-    await sound.playAsync();
-    };
+  const { sound } = await Audio.Sound.createAsync(
+    { uri: fileUri },
+    { shouldPlay: true, volume: 1.0 }
+  );
+
+  await sound.playAsync();
+};
 
   // ---------------------------------------
   // FULL PIPELINE: record → whisper → gpt → tts
   // ---------------------------------------
   const processUserVoice = async (uri: string) => {
     const userText = await transcribeAudio(uri);
-    const gordonReply = await getGordonReply(userText);
+    const chefReply = await getChefReply(userText);
 
     // safety fallback
-    if (!gordonReply) {
-    console.log("⚠️ Gordon reply was empty.");
+    if (!chefReply) {
+    console.log("⚠️chef reply was empty.");
     return;
 }
 
-await speakAsGordon(gordonReply);
+await speakAsChef(chefReply);
   };
 
   // ---------------------------------------
@@ -212,7 +205,30 @@ await speakAsGordon(gordonReply);
       <TouchableOpacity onPress={() => router.back()}>
         <Text style={{ fontSize: 16, color: "#555" }}>← Back</Text>
       </TouchableOpacity>
+    {/* --- CHEF SELECTOR --- */}
+<View style={{ marginTop: 15, marginBottom: 15 }}>
+  <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 8 }}>
+    Choose Your Chef
+  </Text>
 
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {Object.entries(CHEFS).map(([id, c]) => (
+        <TouchableOpacity
+            key={id}
+            onPress={() => setChefId(id as ChefId)}
+            style={{
+            paddingVertical: 10,
+            paddingHorizontal: 16,
+            backgroundColor: chefId === id ? "#4caf50" : "#ddd",
+            borderRadius: 12,
+            marginRight: 10,
+            }}
+        >
+            <Text style={{ fontWeight: "600" }}>{c.name}</Text>
+        </TouchableOpacity>
+        ))}
+    </ScrollView>
+    </View>
       <Text style={{ fontSize: 30, fontWeight: "800", marginTop: 10 }}>
         {parsed.title}
       </Text>
@@ -255,7 +271,7 @@ await speakAsGordon(gordonReply);
         </Text>
       </TouchableOpacity>
 
-      {/* Gordon AI Button */}
+      {/* chef AI Button */}
       <TouchableOpacity
         onPressIn={startRecording}
         onPressOut={stopRecording}
@@ -267,7 +283,7 @@ await speakAsGordon(gordonReply);
         }}
       >
         <Text style={{ color: "white", textAlign: "center", fontSize: 18 }}>
-          🎤 Hold to Ask Gordon
+          🎤 Hold to Ask Chef
         </Text>
       </TouchableOpacity>
 
