@@ -9,6 +9,7 @@ import { useAuth } from "../src/context/AuthContext";
 import { db } from "../src/firebase/config";
 
 export default function Recipes() {
+  
   const { user } = useAuth();
   const [input, setInput] = useState("");
   const [recipes, setRecipes] = useState<any[]>([]);

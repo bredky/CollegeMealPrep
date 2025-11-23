@@ -1,8 +1,9 @@
+import { router } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
-import { useAuth } from "../src/context/AuthContext";
-import { db } from "../src/firebase/config";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useAuth } from "../../src/context/AuthContext";
+import { db } from "../../src/firebase/config";
 
 export default function SavedRecipes() {
   const { user } = useAuth();
@@ -16,7 +17,12 @@ export default function SavedRecipes() {
   const loadSaved = async () => {
     const ref = collection(db, "users", user.uid, "recipes");
     const snap = await getDocs(ref);
-    setSaved(snap.docs.map((d) => d.data()));
+    setSaved(
+      snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }))
+    );
   };
 
   return (
@@ -26,9 +32,9 @@ export default function SavedRecipes() {
       </Text>
 
       <ScrollView>
-        {saved.map((r, i) => (
+        {saved.map((r) => (
           <View
-            key={i}
+            key={r.id}
             style={{
               marginBottom: 20,
               padding: 16,
@@ -40,6 +46,23 @@ export default function SavedRecipes() {
           >
             <Text style={{ fontSize: 20, fontWeight: "700" }}>{r.title}</Text>
             <Text style={{ marginTop: 6 }}>{r.description}</Text>
+
+            <TouchableOpacity
+              onPress={() => router.push({
+                pathname: "/saved/[id]",
+                params: { id: r.id, recipe: JSON.stringify(r) },
+              })}
+              style={{
+                marginTop: 12,
+                backgroundColor: "#4caf50",
+                padding: 12,
+                borderRadius: 8,
+              }}
+            >
+              <Text style={{ color: "white", textAlign: "center", fontWeight: "600" }}>
+                Cook This Recipe 🍳
+              </Text>
+            </TouchableOpacity>
           </View>
         ))}
       </ScrollView>
