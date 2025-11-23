@@ -1,40 +1,101 @@
 import { Audio } from "expo-av";
-import { LinearGradient } from 'expo-linear-gradient';
+import * as FileSystem from "expo-file-system/legacy";
 import { router } from "expo-router";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
-import OpenAI from "openai";
+import OpenAI from "openai"; // expo compatible
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from "react-native";
+import { Button, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { generateVoice } from "../lib/generate-voice-fetch";
 import { useAuth } from "../src/context/AuthContext";
 import { db } from "../src/firebase/config";
-import CameraPopup from "./CameraPopup";
+import CameraPopup from "./CameraPopup"; //added for CameraPopup.jsx
 
 export default function Recipes() {
+  
   const { user } = useAuth();
   const [input, setInput] = useState("");
+  const [dishGoal, setDishGoal] = useState("");
   const [recipes, setRecipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [cameraVisible, setCameraVisible] = useState(false);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [cameraVisible, setCameraVisible] = useState(false); //added for CameraPopup.jsx
+  const [photoUri, setPhotoUri] = useState<string | null>(null);//added for CameraPopup.jsx
 
   const client = new OpenAI({ apiKey: process.env.EXPO_PUBLIC_OPENAI_KEY });
+  const analyzeFromPhoto = async () => {
+  if (!photoUri) return;
 
+  try {
+    setLoading(true);
+    console.log("📸 Analyzing image:", photoUri);
+
+    // Convert to base64
+    const base64 = await FileSystem.readAsStringAsync(photoUri, {
+      encoding: "base64",
+    });
+
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Identify the food ingredients visible in this photo. 
+Return ONLY JSON:
+{
+  "ingredients": ["item1", "item2", ...]
+}`
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${base64}`
+              }
+            }
+          ]
+        }
+      ],
+      response_format: { type: "json_object" }
+    });
+
+    const raw = response.choices?.[0]?.message?.content;
+
+    if (!raw || typeof raw !== "string") {
+    console.error("❌ Invalid response:", raw);
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    console.error("❌ Error parsing:", raw);
+    return;
+  }
+
+    const ingredients = parsed.ingredients || [];
+    console.log("🧺 Detected ingredients:", ingredients);
+
+    // ⚡ update your input box automatically
+    setInput(ingredients.join(", "));
+
+  } catch (err) {
+    console.error("❌ Vision analysis failed", err);
+  }
+
+  setLoading(false);
+};
+
+  //added for CameraPopup.jsx (handler)
   const handlePhotoTaken = (uri?: string) => {
     if (uri) {
       setPhotoUri(uri);
       console.log("Photo captured:", uri);
+      // You could use this photo to:
+      // - Analyze ingredients with GPT-4 Vision
+      // - Store it with a recipe
+      // - Upload to Firebase Storage
     }
     setCameraVisible(false);
   };
@@ -44,15 +105,32 @@ export default function Recipes() {
     setRecipes([]);
 
     const prompt = `
-      Generate 5 recipes based on these ingredients: ${input}.
-      For each recipe return JSON with:
-      {
-        "title": "",
-        "description": "",
-        "ingredients": [],
-        "steps": []
-      }
-    `;
+You are a world-class chef. You must create 5 recipes using ONLY these ingredients:
+
+${input}
+
+User request (may be empty):
+${dishGoal || "None"}
+
+Your job:
+- try and use the ingredients provided, u dont have to use all of them, you can add a few extras only if needed
+- If a user request is provided, shape the recipes around that theme
+- If no request is provided, just create the best and realistic recipes.
+- Don't get too creative, the recipes must be plausible and actually cookable.
+
+Return JSON in exactly this format:
+{
+  "recipes": [
+    {
+      "title": "",
+      "description": "",
+      "ingredients": [],
+      "steps": []
+    }
+  ]
+}
+`;
+
 
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
@@ -78,7 +156,8 @@ export default function Recipes() {
       setLoading(false);
       return;
     }
-
+    
+    // Normalize ANY format into an array
     let finalRecipes = [];
 
     if (Array.isArray(parsed.recipes)) {
@@ -89,22 +168,59 @@ export default function Recipes() {
       finalRecipes = [parsed];
     }
 
-    setRecipes(finalRecipes);
-    setLoading(false);
-  };
+    // ★ Add image to each recipe ★
+    const recipesWithImages = await Promise.all(
+      finalRecipes.map(async (r: { title: string | number | boolean; }) => ({
+        ...r,
+        image: await fetchImageForRecipe(r.title),
+      }))
+    );
 
-  const handleGenerate = async () => {
+    setRecipes(recipesWithImages);
+    setLoading(false);
+      };
+
+    async function fetchImageForRecipe(title: string | number | boolean) {
+      const query = encodeURIComponent(title);
+      const apiKey = process.env.EXPO_PUBLIC_SPOON_KEY;
+
+      console.log("🔍 Using Spoonacular key:", apiKey); 
+      console.log("🔍 Fetching image for:", title);
+
+      const url = `https://api.spoonacular.com/recipes/complexSearch?query=${query}&number=1&apiKey=${apiKey}`;
+
+      console.log("🌐 Spoonacular URL:", url);
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        console.log("📦 Spoonacular Response:", data);
+
+        if (data?.results?.length > 0) {
+          console.log("📸 Found image:", data.results[0].image);
+          return data.results[0].image;
+        }
+
+        console.warn("⚠️ No results found for:", title);
+        return null;
+      } catch (err) {
+        console.error("❌ Image fetch error:", err);
+        return null;
+      }
+    }
+    const handleGenerate = async () => {
     try {
       const fileUri = await generateVoice("This dish is DISGUSTING!");
       console.log("Playing:", fileUri);
 
       const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
       await sound.playAsync();
+
     } catch (err) {
       console.log("Audio error:", err);
     }
   };
-
   const saveRecipe = async (recipe: any) => {
     if (!user) {
       console.log("❌ No user found — cannot save recipe");
@@ -122,7 +238,7 @@ export default function Recipes() {
         ...recipe,
         createdAt: serverTimestamp(),
       });
-
+      
       console.log("✅ Recipe saved successfully!");
     } catch (err) {
       console.log("❌ Save failed:", err);
@@ -130,428 +246,146 @@ export default function Recipes() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
-      <LinearGradient
-        colors={['#FF6B6B', '#FFE66D', '#4ECDC4']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
+    <View style={{ flex: 1, padding: 20, backgroundColor: "#f7f7f7" }}>
+      <Text style={{ fontSize: 26, fontWeight: "700", marginBottom: 10 }}>
+        Recipe Chatbot 👩‍🍳
+      </Text>
+
+      {/* //added for CameraPopup.jsx ← ADD CAMERA BUTTON HERE (Above text input) */}
+      <TouchableOpacity
+        onPress={() => setCameraVisible(true)}
+        style={{
+          backgroundColor: "#FF6B6B",
+          padding: 12,
+          borderRadius: 10,
+          marginBottom: 10,
+          alignItems: "center",
+        }}
       >
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Recipe Creator</Text>
-          <Text style={styles.headerSubtitle}>👨‍🍳 AI-Powered Cooking Assistant</Text>
-        </View>
-      </LinearGradient>
+        <Text style={{ color: "white", fontWeight: "600" }}>
+          📷 Take Photo of Ingredients
+        </Text>
+      </TouchableOpacity>
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Camera Section */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>📸 Ingredient Photo</Text>
-          
-          {photoUri ? (
-            <View style={styles.photoContainer}>
-              <Image source={{ uri: photoUri }} style={styles.photoPreview} />
-              <TouchableOpacity 
-                onPress={() => setPhotoUri(null)}
-                style={styles.removePhotoButton}
-              >
-                <Text style={styles.removePhotoText}>✕ Remove</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={() => setCameraVisible(true)}
-              style={styles.cameraButton}
-            >
-              <Text style={styles.cameraButtonIcon}>📷</Text>
-              <Text style={styles.cameraButtonText}>Take Photo of Ingredients</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+      {/* Show captured photo if exists */}
+      {photoUri && (
+      <View style={{ marginBottom: 10, alignItems: "center" }}>
+        <Image 
+          source={{ uri: photoUri }} 
+          style={{ width: 150, height: 150, borderRadius: 10 }} 
+        />
 
-        {/* Input Section */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>🥘 Your Ingredients</Text>
-          <TextInput
-            placeholder="e.g., chicken, rice, tomatoes..."
-            onChangeText={setInput}
-            value={input}
-            style={styles.input}
-            placeholderTextColor="#999"
-            multiline
-          />
-        </View>
+        <TouchableOpacity
+          onPress={analyzeFromPhoto}
+          style={{
+            backgroundColor: "#4CAF50",
+            padding: 10,
+            borderRadius: 8,
+            marginTop: 10
+          }}
+        >
+          <Text style={{ color: "white", fontWeight: "600" }}>
+            ✔️ Use This Photo
+          </Text>
+        </TouchableOpacity>
 
-        {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            onPress={generateRecipes}
-            style={[styles.actionButton, styles.primaryButton]}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Text style={styles.actionButtonIcon}>🍳</Text>
-                <Text style={styles.actionButtonText}>Generate Recipes</Text>
-              </>
-            )}
-          </TouchableOpacity>
+        <TouchableOpacity onPress={() => setPhotoUri(null)}>
+          <Text style={{ color: "#f44336", marginTop: 8 }}>Remove Photo</Text>
+        </TouchableOpacity>
+      </View>
+    )}
 
-          <View style={styles.secondaryButtonRow}>
-            <TouchableOpacity 
-              onPress={handleGenerate}
-              style={[styles.actionButton, styles.secondaryButton]}
-            >
-              <Text style={styles.secondaryButtonText}>🎙️ Gordon Voice</Text>
-            </TouchableOpacity>
 
-            <TouchableOpacity 
-              onPress={() => router.push("/saved")}
-              style={[styles.actionButton, styles.secondaryButton]}
-            >
-              <Text style={styles.secondaryButtonText}>⭐ Saved Recipes</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+      <TextInput
+  placeholder="Ingredients (auto from photo)…"
+  value={input}
+  onChangeText={setInput}
+/>
+     <TextInput
+  placeholder="What kind of dish are you thinking of? (optional)"
+  value={dishGoal}
+  onChangeText={setDishGoal}
+/>
 
-        {/* Loading State */}
-        {loading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FF6B6B" />
-            <Text style={styles.loadingText}>Creating delicious recipes...</Text>
-          </View>
-        )}
-
-        {/* Recipes List */}
-        {recipes.length > 0 && (
-          <View style={styles.recipesSection}>
-            <Text style={styles.resultTitle}>
-              🎉 Found {recipes.length} Recipe{recipes.length > 1 ? 's' : ''}
-            </Text>
-            
-            {recipes.map((recipe, index) => (
-              <View key={index} style={styles.recipeCard}>
-                {/* Recipe Header */}
-                <View style={styles.recipeHeader}>
-                  <Text style={styles.recipeNumber}>#{index + 1}</Text>
-                  <View style={styles.recipeTitleContainer}>
-                    <Text style={styles.recipeTitle}>{recipe.title}</Text>
-                    <Text style={styles.recipeDescription}>{recipe.description}</Text>
-                  </View>
-                </View>
-
-                {/* Ingredients */}
-                <View style={styles.recipeSection}>
-                  <Text style={styles.recipeSectionTitle}>🥗 Ingredients</Text>
-                  <View style={styles.ingredientsList}>
-                    {recipe.ingredients?.map((ingredient: string, idx: number) => (
-                      <View key={idx} style={styles.ingredientItem}>
-                        <Text style={styles.bulletPoint}>•</Text>
-                        <Text style={styles.ingredientText}>{ingredient}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Steps */}
-                <View style={styles.recipeSection}>
-                  <Text style={styles.recipeSectionTitle}>👨‍🍳 Instructions</Text>
-                  {recipe.steps?.map((step: string, idx: number) => (
-                    <View key={idx} style={styles.stepItem}>
-                      <View style={styles.stepNumber}>
-                        <Text style={styles.stepNumberText}>{idx + 1}</Text>
-                      </View>
-                      <Text style={styles.stepText}>{step}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Save Button */}
-                <TouchableOpacity
-                  onPress={() => saveRecipe(recipe)}
-                  style={styles.saveButton}
-                >
-                  <Text style={styles.saveButtonText}>💾 Save Recipe</Text>
-                </TouchableOpacity>
+    <Button title="Generate Gordon" onPress={handleGenerate} />
+      <Button title="Generate Recipes" onPress={generateRecipes} />
+      <View style={{ width: "100%", marginTop: 20 }}>
+              <Button
+                  title="Saved Recipes"
+                  onPress={() => router.push("/saved")}
+              />
               </View>
+      {loading && <Text style={{ marginTop: 20 }}>Generating…</Text>}
+
+      <ScrollView style={{ marginTop: 20 }}>
+        {recipes.map((recipe, index) => (
+          <View
+            key={index}
+            style={{
+              backgroundColor: "white",
+              padding: 16,
+              borderRadius: 12,
+              marginBottom: 16,
+              shadowOpacity: 0.1,
+              shadowRadius: 5,
+              elevation: 3,
+            }}
+          >
+            <Text style={{ fontSize: 20, fontWeight: "700" }}>
+              {recipe.title}
+            </Text>
+
+            {recipe.image && (
+            <Image
+              source={{ uri: recipe.image }}
+              style={{
+                width: "100%",
+                height: 180,
+                borderRadius: 10,
+                marginTop: 10,
+              }}
+              resizeMode="cover"
+            />
+          )}
+          
+
+            <Text style={{ marginTop: 4, color: "#555" }}>
+              {recipe.description}
+            </Text>
+
+            <Text style={{ marginTop: 10, fontWeight: "600" }}>Ingredients:</Text>
+            {recipe.ingredients.map((i: string, idx: number) => (
+              <Text key={idx} style={{ color: "#444" }}>
+                • {i}
+              </Text>
             ))}
+
+            <Text style={{ marginTop: 10, fontWeight: "600" }}>Steps:</Text>
+            {recipe.steps.map((s: string, idx: number) => (
+              <Text key={idx} style={{ color: "#444" }}>
+                {idx + 1}. {s}
+              </Text>
+            ))}
+
+            {/* SAVE BUTTON */}
+            <TouchableOpacity
+              onPress={() => saveRecipe(recipe)}
+              style={{
+                marginTop: 12,
+                padding: 12,
+                backgroundColor: "#4caf50",
+                borderRadius: 8,
+              }}
+            >
+              <Text style={{ color: "white", fontWeight: "700", textAlign: "center" }}>
+                Save Recipe ⭐
+              </Text>
+            </TouchableOpacity>
           </View>
-        )}
-
-        <View style={{ height: 40 }} />
+        ))}
       </ScrollView>
-
+      {/* /added for CameraPopup.jsx ← ADD CAMERA POPUP AT THE END */}
       <CameraPopup visible={cameraVisible} onClose={handlePhotoTaken} />
-    </SafeAreaView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#f8f9fa",
-  },
-  headerGradient: {
-    paddingTop: 20,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  header: {
-    paddingHorizontal: 20,
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#fff",
-    textShadowColor: "rgba(0, 0, 0, 0.2)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: "#fff",
-    marginTop: 5,
-    opacity: 0.95,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 15,
-  },
-  photoContainer: {
-    alignItems: "center",
-  },
-  photoPreview: {
-    width: "100%",
-    height: 200,
-    borderRadius: 15,
-    marginBottom: 12,
-  },
-  removePhotoButton: {
-    backgroundColor: "#ff4444",
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  removePhotoText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  cameraButton: {
-    backgroundColor: "#f0f0f0",
-    borderRadius: 15,
-    padding: 20,
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#e0e0e0",
-    borderStyle: "dashed",
-  },
-  cameraButtonIcon: {
-    fontSize: 40,
-    marginBottom: 8,
-  },
-  cameraButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#666",
-  },
-  input: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    padding: 15,
-    fontSize: 16,
-    color: "#333",
-    minHeight: 80,
-    textAlignVertical: "top",
-  },
-  buttonContainer: {
-    marginBottom: 15,
-  },
-  actionButton: {
-    borderRadius: 15,
-    padding: 18,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  primaryButton: {
-    backgroundColor: "#FF6B6B",
-    marginBottom: 12,
-  },
-  actionButtonIcon: {
-    fontSize: 24,
-    marginRight: 8,
-  },
-  actionButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  secondaryButtonRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  secondaryButton: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderWidth: 2,
-    borderColor: "#e0e0e0",
-  },
-  secondaryButtonText: {
-    color: "#333",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  loadingContainer: {
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
-    color: "#666",
-    fontWeight: "500",
-  },
-  recipesSection: {
-    marginTop: 10,
-  },
-  resultTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  recipeCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  recipeHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 20,
-  },
-  recipeNumber: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#FF6B6B",
-    marginRight: 12,
-  },
-  recipeTitleContainer: {
-    flex: 1,
-  },
-  recipeTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 6,
-  },
-  recipeDescription: {
-    fontSize: 14,
-    color: "#666",
-    lineHeight: 20,
-  },
-  recipeSection: {
-    marginBottom: 20,
-  },
-  recipeSectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 12,
-  },
-  ingredientsList: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    padding: 15,
-  },
-  ingredientItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 8,
-  },
-  bulletPoint: {
-    fontSize: 16,
-    color: "#FF6B6B",
-    marginRight: 8,
-    fontWeight: "700",
-  },
-  ingredientText: {
-    flex: 1,
-    fontSize: 15,
-    color: "#444",
-    lineHeight: 22,
-  },
-  stepItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 15,
-  },
-  stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#4ECDC4",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  stepNumberText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  stepText: {
-    flex: 1,
-    fontSize: 15,
-    color: "#444",
-    lineHeight: 22,
-  },
-  saveButton: {
-    backgroundColor: "#4CAF50",
-    borderRadius: 12,
-    padding: 16,
-    alignItems: "center",
-    marginTop: 10,
-  },
-  saveButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-});
