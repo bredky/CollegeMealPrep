@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { doc, updateDoc } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import { Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
+import Animated, { FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useAuth } from "../src/context/AuthContext";
 import { db } from "../src/firebase/config";
 
@@ -49,23 +50,29 @@ export default function Settings() {
           showsVerticalScrollIndicator={false}
         >
       {/* Welcome Title */}
-      <Text style={{ 
-        fontSize: 32, 
-        fontWeight: "700", 
-        textAlign: "center", 
-        marginTop: 20, 
-        marginBottom: 20,
-        color: "#000",
-      }}>
+      <Animated.Text 
+        entering={FadeInDown.springify()}
+        style={{ 
+          fontSize: 32, 
+          fontWeight: "700", 
+          textAlign: "center", 
+          marginTop: 20, 
+          marginBottom: 20,
+          color: "#000",
+        }}
+      >
         Welcome {profile?.name || user?.email?.split("@")[0] || "User"}
-      </Text>
+      </Animated.Text>
 
       {/* Fruit Bowl Image */}
-      <View style={{ 
-        alignItems: "center", 
-        marginBottom: 30,
-        justifyContent: "center",
-      }}>
+      <Animated.View 
+        entering={FadeInUp.delay(100).springify()}
+        style={{ 
+          alignItems: "center", 
+          marginBottom: 30,
+          justifyContent: "center",
+        }}
+      >
         <Image
           source={require("../assets/images/fruitbowl.png")}
           style={{
@@ -74,10 +81,11 @@ export default function Settings() {
             resizeMode: "contain",
           }}
         />
-      </View>
+      </Animated.View>
 
       {/* Profile Card */}
-      <View
+      <Animated.View
+        entering={FadeInUp.delay(200).springify()}
         style={{
           backgroundColor: "#f5f8fa",
           padding: 24,
@@ -149,71 +157,139 @@ export default function Settings() {
         </View>
 
         {editing ? (
-          <TouchableOpacity
+          <AnimatedButton
             onPress={savePreferences}
-            style={{
-              backgroundColor: "#4a90e2",
-              padding: 12,
-              borderRadius: 8,
-              alignItems: "center",
-            }}
+            style={{ width: "100%" }}
+            backgroundColor="#4a90e2"
           >
             <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
               Save Preferences
             </Text>
-          </TouchableOpacity>
+          </AnimatedButton>
         ) : (
-          <TouchableOpacity
+          <AnimatedButton
             onPress={() => setEditing(true)}
-            style={{
-              alignItems: "center",
-            }}
+            style={{ width: "100%" }}
+            backgroundColor="#f5f8fa"
+            borderColor="#4a90e2"
           >
             <Text style={{ color: "#4a90e2", fontSize: 16, fontWeight: "600" }}>
               Edit Preferences
             </Text>
-          </TouchableOpacity>
+          </AnimatedButton>
         )}
-      </View>
+      </Animated.View>
 
       {/* Links Section */}
-      <View style={{ width: "100%", alignItems: "center" }}>
-        <TouchableOpacity
+      <Animated.View 
+        entering={FadeInUp.delay(300).springify()}
+        style={{ width: "100%", alignItems: "center" }}
+      >
+        <AnimatedButton
           onPress={() => router.push("/recipes")}
-          style={{ marginBottom: 16, flexDirection: "row", alignItems: "center" }}
+          style={{ marginBottom: 16, width: "100%" }}
+          backgroundColor="#4a90e2"
         >
-          <Text style={{ color: "#4a90e2", fontSize: 16, fontWeight: "600" }}>
+          <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
             Build Your Recipe
           </Text>
-        </TouchableOpacity>
+        </AnimatedButton>
 
-        <TouchableOpacity
+        <AnimatedButton
           onPress={() => router.push("/custom-chef")}
-          style={{ marginBottom: 20 }}
+          style={{ marginBottom: 20, width: "100%" }}
+          backgroundColor="#4a90e2"
         >
-          <Text style={{ color: "#4a90e2", fontSize: 16, fontWeight: "600" }}>
+          <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
             Build Your Custom Chef
           </Text>
-        </TouchableOpacity>
+        </AnimatedButton>
 
         <Text style={{ fontSize: 20, fontWeight: "700", color: "#000", marginTop: 20, marginBottom: 20 }}>
           Preferences
         </Text>
 
-        <TouchableOpacity
+        <AnimatedButton
           onPress={async () => {
             await logout();
             router.replace("/login");
           }}
-          style={{ marginTop: 20 }}
+          style={{ marginTop: 20, width: "100%" }}
+          backgroundColor="#d9534f"
         >
-          <Text style={{ color: "#d9534f", fontSize: 16, fontWeight: "600" }}>
+          <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
             Logout
           </Text>
-        </TouchableOpacity>
-      </View>
+        </AnimatedButton>
+      </Animated.View>
         </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
+  );
+}
+
+// Animated Button Component
+function AnimatedButton({
+  children,
+  onPress,
+  style,
+  backgroundColor,
+  borderColor,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: any;
+  backgroundColor: string;
+  borderColor?: string;
+}) {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    };
+  });
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, { damping: 15 });
+    opacity.value = withSpring(0.8, { damping: 15 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15 });
+    opacity.value = withSpring(1, { damping: 15 });
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={1}
+    >
+      <Animated.View
+        style={[
+          {
+            backgroundColor,
+            padding: 14,
+            borderRadius: 12,
+            alignItems: "center",
+            borderWidth: borderColor ? 2 : 0,
+            borderColor: borderColor || "transparent",
+            shadowColor: "#000",
+            shadowOpacity: 0.1,
+            shadowOffset: { width: 0, height: 2 },
+            shadowRadius: 4,
+            elevation: 2,
+          },
+          style,
+          animatedStyle,
+        ]}
+      >
+        {children}
+      </Animated.View>
+    </TouchableOpacity>
   );
 }

@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
+import Animated, { FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useAuth } from "../src/context/AuthContext";
 
 export default function Signup() {
@@ -55,7 +56,8 @@ export default function Signup() {
       </View>
 
       {/* Create Account Card */}
-      <View
+      <Animated.View
+        entering={FadeInUp.springify()}
         style={{
           backgroundColor: "#f5f8fa",
           padding: 24,
@@ -148,18 +150,16 @@ export default function Signup() {
           }}
         />
 
-        <TouchableOpacity
+        <AnimatedButton
           onPress={onSignup}
-          style={{
-            alignItems: "center",
-            marginBottom: 20,
-          }}
+          backgroundColor="#4a90e2"
+          style={{ marginBottom: 20 }}
         >
-          <Text style={{ color: "#4a90e2", fontSize: 18, fontWeight: "700" }}>
+          <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700" }}>
             Create Account
           </Text>
-        </TouchableOpacity>
-      </View>
+        </AnimatedButton>
+      </Animated.View>
 
       {/* Login Redirect */}
       <View style={{ marginTop: 20, alignItems: "center" }}>
@@ -192,5 +192,67 @@ export default function Signup() {
         </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
+  );
+}
+
+// Animated Button Component
+function AnimatedButton({
+  children,
+  onPress,
+  style,
+  backgroundColor,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: any;
+  backgroundColor: string;
+}) {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    };
+  });
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, { damping: 15 });
+    opacity.value = withSpring(0.8, { damping: 15 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15 });
+    opacity.value = withSpring(1, { damping: 15 });
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={1}
+    >
+      <Animated.View
+        style={[
+          {
+            backgroundColor,
+            padding: 14,
+            borderRadius: 10,
+            alignItems: "center",
+            shadowColor: "#000",
+            shadowOpacity: 0.1,
+            shadowOffset: { width: 0, height: 2 },
+            shadowRadius: 4,
+            elevation: 2,
+          },
+          style,
+          animatedStyle,
+        ]}
+      >
+        {children}
+      </Animated.View>
+    </TouchableOpacity>
   );
 }

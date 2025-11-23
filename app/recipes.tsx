@@ -4,6 +4,7 @@ import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import OpenAI from "openai"; // expo compatible
 import { useState } from "react";
 import { Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { useAuth } from "../src/context/AuthContext";
 import { db } from "../src/firebase/config";
 import CameraPopup from "./CameraPopup"; //added for CameraPopup.jsx
@@ -270,7 +271,10 @@ Return JSON in exactly this format:
       </TouchableOpacity>
 
       {/* Header with Eggs Image and Title */}
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20, marginTop: 0 }}>
+      <Animated.View 
+        entering={FadeInUp.springify()}
+        style={{ flexDirection: "row", alignItems: "center", marginBottom: 20, marginTop: 0 }}
+      >
         {/* Eggs Image */}
         <View style={{ marginRight: 12 }}>
           <Image
@@ -293,7 +297,7 @@ Return JSON in exactly this format:
             width: "100%",
           }} />
         </View>
-      </View>
+      </Animated.View>
 
       {/* Upload Photo Button */}
       <TouchableOpacity
@@ -447,8 +451,9 @@ Return JSON in exactly this format:
 
       <View style={{ marginTop: 10 }}>
         {recipes.map((recipe, index) => (
-          <View
+          <Animated.View
             key={index}
+            entering={FadeInDown.delay(index * 100).springify()}
             style={{
               backgroundColor: "#f5f8fa",
               padding: 16,
@@ -524,7 +529,7 @@ Return JSON in exactly this format:
                 Cook This
               </Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         ))}
       </View>
         </ScrollView>

@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
+import Animated, { FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useAuth } from "../src/context/AuthContext";
 
 export default function LoginScreen() {
@@ -31,7 +32,10 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
       {/* Logo */}
-      <View style={{ marginBottom: 20, alignItems: "center" }}>
+      <Animated.View 
+        entering={FadeInDown.springify()}
+        style={{ marginBottom: 20, alignItems: "center" }}
+      >
         <Image
           source={require("../assets/images/SousChefIcon.png")}
           style={{
@@ -60,25 +64,31 @@ export default function LoginScreen() {
             CHEF
           </Text>
         </View>
-      </View>
+      </Animated.View>
 
       {/* Tagline */}
-      <Text style={{ fontSize: 16, fontWeight: "600", color: "#000", marginBottom: 40, textAlign: "center" }}>
+      <Animated.Text 
+        entering={FadeInDown.delay(100).springify()}
+        style={{ fontSize: 16, fontWeight: "600", color: "#000", marginBottom: 40, textAlign: "center" }}
+      >
         Sign up to create your own cookbook
-      </Text>
+      </Animated.Text>
 
       {/* Login Card */}
-      <View style={{
-        backgroundColor: "#f5f8fa",
-        padding: 24,
-        borderRadius: 16,
-        width: "100%",
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 8,
-        elevation: 3,
-      }}>
+      <Animated.View 
+        entering={FadeInUp.delay(200).springify()}
+        style={{
+          backgroundColor: "#f5f8fa",
+          padding: 24,
+          borderRadius: 16,
+          width: "100%",
+          shadowColor: "#000",
+          shadowOpacity: 0.1,
+          shadowOffset: { width: 0, height: 2 },
+          shadowRadius: 8,
+          elevation: 3,
+        }}
+      >
         <Text style={{ fontSize: 24, fontWeight: "700", marginBottom: 20, textAlign: "center", color: "#000" }}>
           Log In
         </Text>
@@ -117,27 +127,84 @@ export default function LoginScreen() {
           }}
         />
 
-        <TouchableOpacity
+        <AnimatedButton
           onPress={handleLogin}
-          style={{
-            backgroundColor: "#4a90e2",
-            padding: 14,
-            borderRadius: 10,
-            alignItems: "center",
-            marginBottom: 16,
-          }}
+          backgroundColor="#4a90e2"
+          style={{ marginBottom: 16 }}
         >
           <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>Log In</Text>
-        </TouchableOpacity>
+        </AnimatedButton>
 
         <TouchableOpacity onPress={() => router.push("/signup")}>
           <Text style={{ color: "#4a90e2", fontSize: 16, textAlign: "center", fontWeight: "500" }}>
             Sign Up
           </Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
         </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
+  );
+}
+
+// Animated Button Component
+function AnimatedButton({
+  children,
+  onPress,
+  style,
+  backgroundColor,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: any;
+  backgroundColor: string;
+}) {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    };
+  });
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, { damping: 15 });
+    opacity.value = withSpring(0.8, { damping: 15 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15 });
+    opacity.value = withSpring(1, { damping: 15 });
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={1}
+    >
+      <Animated.View
+        style={[
+          {
+            backgroundColor,
+            padding: 14,
+            borderRadius: 10,
+            alignItems: "center",
+            shadowColor: "#000",
+            shadowOpacity: 0.1,
+            shadowOffset: { width: 0, height: 2 },
+            shadowRadius: 4,
+            elevation: 2,
+          },
+          style,
+          animatedStyle,
+        ]}
+      >
+        {children}
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
