@@ -7,6 +7,7 @@ import { Button, Image, ScrollView, Text, TextInput, TouchableOpacity, View } fr
 import { generateVoice } from "../lib/generate-voice-fetch";
 import { useAuth } from "../src/context/AuthContext";
 import { db } from "../src/firebase/config";
+import CameraPopup from "./CameraPopup"; //added for CameraPopup.jsx
 
 
 export default function Recipes() {
@@ -15,8 +16,23 @@ export default function Recipes() {
   const [input, setInput] = useState("");
   const [recipes, setRecipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [cameraVisible, setCameraVisible] = useState(false); //added for CameraPopup.jsx
+  const [photoUri, setPhotoUri] = useState<string | null>(null);//added for CameraPopup.jsx
 
   const client = new OpenAI({ apiKey: process.env.EXPO_PUBLIC_OPENAI_KEY });
+
+  //added for CameraPopup.jsx (handler)
+  const handlePhotoTaken = (uri?: string) => {
+    if (uri) {
+      setPhotoUri(uri);
+      console.log("Photo captured:", uri);
+      // You could use this photo to:
+      // - Analyze ingredients with GPT-4 Vision
+      // - Store it with a recipe
+      // - Upload to Firebase Storage
+    }
+    setCameraVisible(false);
+  };
 
   const generateRecipes = async () => {
     setLoading(true);
@@ -153,6 +169,35 @@ export default function Recipes() {
         Recipe Chatbot 👩‍🍳
       </Text>
 
+      {/* //added for CameraPopup.jsx ← ADD CAMERA BUTTON HERE (Above text input) */}
+      <TouchableOpacity
+        onPress={() => setCameraVisible(true)}
+        style={{
+          backgroundColor: "#FF6B6B",
+          padding: 12,
+          borderRadius: 10,
+          marginBottom: 10,
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ color: "white", fontWeight: "600" }}>
+          📷 Take Photo of Ingredients
+        </Text>
+      </TouchableOpacity>
+
+      {/* Show captured photo if exists */}
+      {photoUri && (
+        <View style={{ marginBottom: 10, alignItems: "center" }}>
+          <Image 
+            source={{ uri: photoUri }} 
+            style={{ width: 150, height: 150, borderRadius: 10 }} 
+          />
+          <TouchableOpacity onPress={() => setPhotoUri(null)}>
+            <Text style={{ color: "#f44336", marginTop: 5 }}>Remove Photo</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <TextInput
         placeholder="Enter ingredients…"
         onChangeText={setInput}
@@ -244,6 +289,8 @@ export default function Recipes() {
           </View>
         ))}
       </ScrollView>
+      {/* /added for CameraPopup.jsx ← ADD CAMERA POPUP AT THE END */}
+      <CameraPopup visible={cameraVisible} onClose={handlePhotoTaken} />
     </View>
   );
 }
