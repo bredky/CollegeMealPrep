@@ -26,10 +26,39 @@ export default function SavedRecipes() {
   };
 
   return (
-    <View style={{ flex: 1, padding: 20 }}>
-      <Text style={{ fontSize: 26, fontWeight: "700", marginBottom: 20 }}>
-        Saved Recipes ⭐
-      </Text>
+    <View style={{ flex: 1, padding: 20, backgroundColor: "#d4e0ed" }}>
+      {/* Back Button */}
+      <TouchableOpacity 
+        onPress={() => router.back()}
+        style={{ marginBottom: 20, marginTop: 10 }}
+      >
+        <Text style={{ fontSize: 18, color: "#4a90e2", fontWeight: "600" }}>← Back</Text>
+      </TouchableOpacity>
+
+      {/* Header with Title and Star Icon */}
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20, marginTop: 0 }}>
+        <Text style={{ fontSize: 28, fontWeight: "700", color: "#000", marginRight: 8 }}>
+          Saved Recipes
+        </Text>
+        <View style={{
+          width: 24,
+          height: 24,
+          position: "relative",
+        }}>
+          {/* Star Icon */}
+          <View style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 24,
+            height: 24,
+            justifyContent: "center",
+            alignItems: "center",
+          }}>
+            <Text style={{ fontSize: 24, color: "#ffa726" }}>⭐</Text>
+          </View>
+        </View>
+      </View>
 
       <ScrollView>
         {saved.map((r) => (
@@ -38,14 +67,18 @@ export default function SavedRecipes() {
             style={{
               marginBottom: 20,
               padding: 16,
-              backgroundColor: "white",
+              backgroundColor: "#f5f8fa",
               borderRadius: 12,
               shadowOpacity: 0.1,
               shadowRadius: 5,
+              borderWidth: 1,
+              borderColor: "#e0e0e0",
             }}
           >
-            <Text style={{ fontSize: 20, fontWeight: "700" }}>{r.title}</Text>
-            <Text style={{ marginTop: 6 }}>{r.description}</Text>
+            <Text style={{ fontSize: 20, fontWeight: "700", color: "#000", marginBottom: 8 }}>
+              {r.title}
+            </Text>
+            <Text style={{ marginTop: 6, color: "#666", fontSize: 14 }}>{r.description}</Text>
 
             <TouchableOpacity
               onPress={() => router.push({

@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import OpenAI from "openai"; // expo compatible
 import { useState } from "react";
-import { Button, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../src/context/AuthContext";
 import { db } from "../src/firebase/config";
 import CameraPopup from "./CameraPopup"; //added for CameraPopup.jsx
@@ -243,87 +243,262 @@ Return JSON in exactly this format:
   };
 
   return (
-    <View style={{ flex: 1, padding: 20, backgroundColor: "#f7f7f7" }}>
-      <Text style={{ fontSize: 26, fontWeight: "700", marginBottom: 10 }}>
-        Recipe Chatbot 👩‍🍳
-      </Text>
+    <KeyboardAvoidingView 
+      style={{ flex: 1, backgroundColor: "#d4e0ed" }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+    >
+      <View style={{ flex: 1 }}>
+        <ScrollView 
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true}
+          nestedScrollEnabled={true}
+          onScrollBeginDrag={Keyboard.dismiss}
+        >
+      {/* Back Button */}
+      <TouchableOpacity 
+        onPress={() => router.back()}
+        style={{ marginBottom: 20, marginTop: 10 }}
+      >
+        <Text style={{ fontSize: 18, color: "#4a90e2", fontWeight: "600" }}>← Back</Text>
+      </TouchableOpacity>
 
-      {/* //added for CameraPopup.jsx ← ADD CAMERA BUTTON HERE (Above text input) */}
+      {/* Header with Egg Halves Icon and Title */}
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20, marginTop: 0 }}>
+        {/* Two Egg Halves Icon */}
+        <View style={{ marginRight: 12, position: "relative", width: 60, height: 50 }}>
+          {/* Top egg half */}
+          <View style={{
+            position: "absolute",
+            top: 0,
+            left: 5,
+            width: 40,
+            height: 25,
+            borderRadius: 20,
+            backgroundColor: "#f5f8fa",
+            borderWidth: 2,
+            borderColor: "#000",
+            borderBottomWidth: 0,
+            borderBottomLeftRadius: 0,
+            borderBottomRightRadius: 0,
+          }}>
+            <View style={{
+              position: "absolute",
+              top: 8,
+              left: 15,
+              width: 12,
+              height: 12,
+              borderRadius: 6,
+              backgroundColor: "#ffa726",
+            }} />
+          </View>
+          {/* Bottom egg half */}
+          <View style={{
+            position: "absolute",
+            top: 20,
+            left: 10,
+            width: 40,
+            height: 25,
+            borderRadius: 20,
+            backgroundColor: "#f5f8fa",
+            borderWidth: 2,
+            borderColor: "#000",
+            borderTopWidth: 0,
+            borderTopLeftRadius: 0,
+            borderTopRightRadius: 0,
+          }}>
+            <View style={{
+              position: "absolute",
+              top: 5,
+              left: 15,
+              width: 12,
+              height: 12,
+              borderRadius: 6,
+              backgroundColor: "#ffa726",
+            }} />
+          </View>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 26, fontWeight: "700", color: "#000" }}>
+            Build Your Recipe
+          </Text>
+          <View style={{ 
+            height: 2, 
+            backgroundColor: "#000", 
+            marginTop: 4,
+            width: "100%",
+          }} />
+        </View>
+      </View>
+
+      {/* Upload Photo Button */}
       <TouchableOpacity
         onPress={() => setCameraVisible(true)}
         style={{
-          backgroundColor: "#FF6B6B",
-          padding: 12,
-          borderRadius: 10,
-          marginBottom: 10,
+          backgroundColor: "#4a90e2",
+          padding: 16,
+          borderRadius: 12,
+          marginBottom: 16,
           alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "center",
         }}
       >
-        <Text style={{ color: "white", fontWeight: "600" }}>
-          📷 Take Photo of Ingredients
+        <Text style={{ fontSize: 20, marginRight: 8 }}>📷</Text>
+        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>
+          Upload Photo of Ingredients
         </Text>
       </TouchableOpacity>
 
       {/* Show captured photo if exists */}
       {photoUri && (
-      <View style={{ marginBottom: 10, alignItems: "center" }}>
-        <Image 
-          source={{ uri: photoUri }} 
-          style={{ width: 150, height: 150, borderRadius: 10 }} 
-        />
+        <View style={{ marginBottom: 16, alignItems: "center" }}>
+          <Image 
+            source={{ uri: photoUri }} 
+            style={{ width: 200, height: 200, borderRadius: 12, marginBottom: 12 }} 
+          />
 
+          <TouchableOpacity
+            onPress={analyzeFromPhoto}
+            style={{
+              backgroundColor: "#4a90e2",
+              padding: 12,
+              borderRadius: 10,
+              marginBottom: 8,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <View style={{
+              width: 20,
+              height: 20,
+              borderRadius: 10,
+              backgroundColor: "#fff",
+              marginRight: 8,
+              justifyContent: "center",
+              alignItems: "center",
+            }}>
+              <Text style={{ color: "#4a90e2", fontSize: 12 }}>✓</Text>
+            </View>
+            <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>
+              Use This Photo
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setPhotoUri(null)}>
+            <Text style={{ color: "#d9534f", marginTop: 8, fontSize: 14, fontWeight: "500" }}>
+              Remove Photo
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Generate Recipes and Saved Recipes Buttons */}
+      <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
         <TouchableOpacity
-          onPress={analyzeFromPhoto}
+          onPress={generateRecipes}
+          disabled={loading}
           style={{
-            backgroundColor: "#4CAF50",
-            padding: 10,
-            borderRadius: 8,
-            marginTop: 10
+            flex: 1,
+            backgroundColor: "#f5f8fa",
+            padding: 14,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: "#ddd",
+            alignItems: "center",
           }}
         >
-          <Text style={{ color: "white", fontWeight: "600" }}>
-            ✔️ Use This Photo
+          <Text style={{ color: "#000", fontWeight: "700", fontSize: 16 }}>
+            Generate Recipes
           </Text>
         </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => setPhotoUri(null)}>
-          <Text style={{ color: "#f44336", marginTop: 8 }}>Remove Photo</Text>
+        <TouchableOpacity
+          onPress={() => router.push("/saved")}
+          style={{
+            flex: 1,
+            backgroundColor: "#f5f8fa",
+            padding: 14,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: "#ddd",
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "#000", fontWeight: "700", fontSize: 16 }}>
+            Saved Recipes
+          </Text>
         </TouchableOpacity>
       </View>
-    )}
 
+      {/* Customize Section */}
+      <Text style={{ fontSize: 18, fontWeight: "700", color: "#4a90e2", marginBottom: 12 }}>
+        Customize
+      </Text>
+      <Text style={{ fontSize: 14, color: "#999", marginBottom: 8 }}>
+        Add Ingredients (optional)
+      </Text>
+      <Text style={{ fontSize: 14, color: "#999", marginBottom: 12 }}>
+        What kind of dish are you thinking of?(optional)
+      </Text>
 
+      {/* Input Fields */}
       <TextInput
-  placeholder="Ingredients (auto from photo)…"
-  value={input}
-  onChangeText={setInput}
-/>
-     <TextInput
-  placeholder="What kind of dish are you thinking of? (optional)"
-  value={dishGoal}
-  onChangeText={setDishGoal}
-/>
-   <Button title="Generate Recipes" onPress={generateRecipes} />
-      <View style={{ width: "100%", marginTop: 20 }}>
-              <Button
-                  title="Saved Recipes"
-                  onPress={() => router.push("/saved")}
-              />
-              </View>
-      {loading && <Text style={{ marginTop: 20 }}>Generating…</Text>}
+        placeholder="Add Ingredients (optional)"
+        placeholderTextColor="#999"
+        value={input}
+        onChangeText={setInput}
+        style={{
+          backgroundColor: "#f5f8fa",
+          padding: 12,
+          borderRadius: 10,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: "#ddd",
+          fontSize: 16,
+          minHeight: 50,
+        }}
+        multiline
+      />
+      <TextInput
+        placeholder="What kind of dish are you thinking of? (optional)"
+        placeholderTextColor="#999"
+        value={dishGoal}
+        onChangeText={setDishGoal}
+        style={{
+          backgroundColor: "#f5f8fa",
+          padding: 12,
+          borderRadius: 10,
+          marginBottom: 20,
+          borderWidth: 1,
+          borderColor: "#ddd",
+          fontSize: 16,
+          minHeight: 50,
+        }}
+        multiline
+      />
 
-      <ScrollView style={{ marginTop: 20 }}>
+      {loading && (
+        <Text style={{ marginTop: 10, marginBottom: 10, color: "#666", fontSize: 16, textAlign: "center" }}>
+          Generating…
+        </Text>
+      )}
+
+      <View style={{ marginTop: 10 }}>
         {recipes.map((recipe, index) => (
           <View
             key={index}
             style={{
-              backgroundColor: "white",
+              backgroundColor: "#f5f8fa",
               padding: 16,
               borderRadius: 12,
               marginBottom: 16,
               shadowOpacity: 0.1,
               shadowRadius: 5,
               elevation: 3,
+              borderWidth: 1,
+              borderColor: "#e0e0e0",
             }}
           >
             <Text style={{ fontSize: 20, fontWeight: "700" }}>
@@ -391,9 +566,11 @@ Return JSON in exactly this format:
             </TouchableOpacity>
           </View>
         ))}
-      </ScrollView>
-      {/* /added for CameraPopup.jsx ← ADD CAMERA POPUP AT THE END */}
-      <CameraPopup visible={cameraVisible} onClose={handlePhotoTaken} />
-    </View>
+      </View>
+        </ScrollView>
+        {/* /added for CameraPopup.jsx ← ADD CAMERA POPUP AT THE END */}
+        <CameraPopup visible={cameraVisible} onClose={handlePhotoTaken} />
+      </View>
+    </KeyboardAvoidingView>
   );
 }
