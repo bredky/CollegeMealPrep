@@ -138,7 +138,7 @@ export default function RecipeDetail() {
   // 4. Ask GPT as Gordon Ramsay
   // ---------------------------------------
   const getGordonReply = async (userText: string) => {
-    console.log("👨‍🍳 Asking Gordon:", userText);
+    console.log(" Asking Gordon:", userText);
 
     const systemPrompt = `
 You are Gordon Ramsay. 
@@ -166,7 +166,7 @@ ${parsed.steps.join("\n")}
     });
 
     const answer = resp.choices[0].message.content;
-    console.log("👨‍🍳 Gordon says:", answer);
+    console.log("Gordon says:", answer);
     return answer;
   };
 

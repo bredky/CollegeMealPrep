@@ -3,10 +3,11 @@ import { router } from "expo-router";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import OpenAI from "openai"; // expo compatible
 import { useState } from "react";
-import { Button, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Button, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { generateVoice } from "../lib/generate-voice-fetch";
 import { useAuth } from "../src/context/AuthContext";
 import { db } from "../src/firebase/config";
+
 
 export default function Recipes() {
   
@@ -57,7 +58,7 @@ export default function Recipes() {
       setLoading(false);
       return;
     }
-
+    
     // Normalize ANY format into an array
     let finalRecipes = [];
 
@@ -69,9 +70,47 @@ export default function Recipes() {
       finalRecipes = [parsed];
     }
 
-    setRecipes(finalRecipes);
+    // ★ Add image to each recipe ★
+    const recipesWithImages = await Promise.all(
+      finalRecipes.map(async (r: { title: string | number | boolean; }) => ({
+        ...r,
+        image: await fetchImageForRecipe(r.title),
+      }))
+    );
+
+    setRecipes(recipesWithImages);
     setLoading(false);
-  };
+      };
+
+    async function fetchImageForRecipe(title: string | number | boolean) {
+      const query = encodeURIComponent(title);
+      const apiKey = process.env.EXPO_PUBLIC_SPOON_KEY;
+
+      console.log("🔍 Using Spoonacular key:", apiKey); 
+      console.log("🔍 Fetching image for:", title);
+
+      const url = `https://api.spoonacular.com/recipes/complexSearch?query=${query}&number=1&apiKey=${apiKey}`;
+
+      console.log("🌐 Spoonacular URL:", url);
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        console.log("📦 Spoonacular Response:", data);
+
+        if (data?.results?.length > 0) {
+          console.log("📸 Found image:", data.results[0].image);
+          return data.results[0].image;
+        }
+
+        console.warn("⚠️ No results found for:", title);
+        return null;
+      } catch (err) {
+        console.error("❌ Image fetch error:", err);
+        return null;
+      }
+    }
     const handleGenerate = async () => {
     try {
       const fileUri = await generateVoice("This dish is DISGUSTING!");
@@ -101,7 +140,7 @@ export default function Recipes() {
         ...recipe,
         createdAt: serverTimestamp(),
       });
-
+      
       console.log("✅ Recipe saved successfully!");
     } catch (err) {
       console.log("❌ Save failed:", err);
@@ -155,6 +194,20 @@ export default function Recipes() {
             <Text style={{ fontSize: 20, fontWeight: "700" }}>
               {recipe.title}
             </Text>
+
+            {recipe.image && (
+            <Image
+              source={{ uri: recipe.image }}
+              style={{
+                width: "100%",
+                height: 180,
+                borderRadius: 10,
+                marginTop: 10,
+              }}
+              resizeMode="cover"
+            />
+          )}
+          
 
             <Text style={{ marginTop: 4, color: "#555" }}>
               {recipe.description}
