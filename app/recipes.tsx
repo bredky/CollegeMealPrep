@@ -87,6 +87,17 @@ Return ONLY JSON:
   setLoading(false);
 };
 
+const goToRecipe = (recipe: { title: string; }) => {
+  const id = recipe.title.replace(/\s+/g, "_").toLowerCase();
+  router.push({
+  pathname: "/saved/[id]",
+  params: {
+    id: recipe.title.replace(/\s+/g, "_").toLowerCase(),
+    recipe: JSON.stringify(recipe),
+  },
+});
+
+};
   //added for CameraPopup.jsx (handler)
   const handlePhotoTaken = (uri?: string) => {
     if (uri) {
@@ -306,9 +317,7 @@ Return JSON in exactly this format:
   value={dishGoal}
   onChangeText={setDishGoal}
 />
-
-    <Button title="Generate Gordon" onPress={handleGenerate} />
-      <Button title="Generate Recipes" onPress={generateRecipes} />
+   <Button title="Generate Recipes" onPress={generateRecipes} />
       <View style={{ width: "100%", marginTop: 20 }}>
               <Button
                   title="Saved Recipes"
@@ -379,6 +388,19 @@ Return JSON in exactly this format:
             >
               <Text style={{ color: "white", fontWeight: "700", textAlign: "center" }}>
                 Save Recipe ⭐
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => goToRecipe(recipe)}
+              style={{
+                marginTop: 12,
+                padding: 12,
+                backgroundColor: "#0277BD",
+                borderRadius: 8,
+              }}
+            >
+              <Text style={{ color: "white", fontWeight: "700", textAlign: "center" }}>
+                Cook This 🍳
               </Text>
             </TouchableOpacity>
           </View>
