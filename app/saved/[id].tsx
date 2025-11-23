@@ -1,15 +1,13 @@
 import { Audio } from "expo-av";
 import { router, useLocalSearchParams } from "expo-router";
+import { collection, getDocs } from "firebase/firestore";
 import OpenAI from "openai";
-import { useRef, useState } from "react";
-import {
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { SetStateAction, useEffect, useRef, useState } from "react";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { CHEFS } from "../../lib/chefs";
 import { generateVoice } from "../../lib/generate-voice-fetch";
+import { useAuth } from "../../src/context/AuthContext";
+import { db } from "../../src/firebase/config";
 
 const openai = new OpenAI({
   apiKey: process.env.EXPO_PUBLIC_OPENAI_KEY,
@@ -18,23 +16,66 @@ const openai = new OpenAI({
 export default function RecipeDetail() {
   const { recipe } = useLocalSearchParams();
   const parsed = JSON.parse(recipe as string);
-  type ChefId = keyof typeof CHEFS;
+
+  // -------------------------
+  // TYPE FIX HERE
+  // -------------------------
+  type BuiltInChefId = keyof typeof CHEFS;
+  type CustomChefId = `custom-${string}`;
+  type ChefId = BuiltInChefId | CustomChefId;
+
   const [chefId, setChefId] = useState<ChefId>("gordon");
-  const chef = CHEFS[chefId];
+
+  const { user } = useAuth();
+  const [customChefs, setCustomChefs] = useState<any[]>([]);
+
+  // -------------------------
+  // LOAD CUSTOM CHEFS
+  // -------------------------
+  useEffect(() => {
+    if (!user) return;
+
+    const loadChefs = async () => {
+      const ref = collection(db, "users", user.uid, "customChefs");
+      const snap = await getDocs(ref);
+      const out: SetStateAction<any[]> = [];
+
+      snap.forEach((doc) => {
+        out.push({ id: doc.id, ...doc.data() });
+      });
+
+      setCustomChefs(out);
+    };
+
+    loadChefs();
+  }, [user]);
+
+  // -------------------------
+  // RESOLVE CURRENT CHEF
+  // -------------------------
+  let chef: any = null;
+
+  if (chefId.startsWith("custom-")) {
+    const id = chefId.replace("custom-", "");
+    chef = customChefs.find((c) => c.id === id);
+  } else {
+    chef = CHEFS[chefId as BuiltInChefId];
+  }
+
   const [stepIndex, setStepIndex] = useState(0);
 
   // Recording state
   const [recording, setRecording] = useState<any>(null);
   const recordingRef = useRef<any>(null);
 
-  // ---------------------------------------
-  // PLAY CURRENT STEP (your existing code)
-  // ---------------------------------------
+  // -------------------------
+  // PLAY CURRENT STEP
+  // -------------------------
   const speakStep = async () => {
     try {
       const text = parsed.steps[stepIndex];
       const fileUri = await generateVoice(text, chef.voiceId);
-      
+
       const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
       await sound.playAsync();
     } catch (err) {
@@ -42,15 +83,16 @@ export default function RecipeDetail() {
     }
   };
 
-  // ---------------------------------------
-  // 1. START RECORDING (press & hold)
-  // ---------------------------------------
+  // -------------------------
+  // START RECORDING
+  // -------------------------
   const startRecording = async () => {
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: true,
       playsInSilentModeIOS: true,
       staysActiveInBackground: false,
     });
+
     try {
       console.log("🎤 Starting recording...");
 
@@ -68,9 +110,7 @@ export default function RecipeDetail() {
       const rec = new Audio.Recording();
       recordingRef.current = rec;
 
-      await rec.prepareToRecordAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
+      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       await rec.startAsync();
 
       setRecording(rec);
@@ -79,9 +119,9 @@ export default function RecipeDetail() {
     }
   };
 
-  // ---------------------------------------
-  // 2. STOP RECORDING (on release)
-  // ---------------------------------------
+  // -------------------------
+  // STOP RECORDING
+  // -------------------------
   const stopRecording = async () => {
     console.log("🛑 Stopping recording...");
     try {
@@ -92,56 +132,49 @@ export default function RecipeDetail() {
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
-        });
-      const uri = rec.getURI();
+      });
 
+      const uri = rec.getURI();
       setRecording(null);
       console.log("🎤 File saved to:", uri);
 
-      if (uri) {
-        await processUserVoice(uri);
-      }
+      if (uri) await processUserVoice(uri);
     } catch (err) {
       console.log("Stop error:", err);
     }
   };
 
-  // ---------------------------------------
-  // 3. Transcribe via Whisper
-  // ---------------------------------------
-    const transcribeAudio = async (uri: string) => {
+  // -------------------------
+  // TRANSCRIBE VIA WHISPER
+  // -------------------------
+  const transcribeAudio = async (uri: string) => {
     console.log("📝 Transcribing with Whisper...");
 
     const formData: any = new FormData();
     formData.append("file", {
-        uri,
-        name: "audio.m4a",
-        type: "audio/m4a",
+      uri,
+      name: "audio.m4a",
+      type: "audio/m4a",
     });
     formData.append("model", "whisper-1");
 
-    const response = await fetch(
-        "https://api.openai.com/v1/audio/transcriptions",
-        {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${process.env.EXPO_PUBLIC_OPENAI_KEY}`,
-        },
-        body: formData,
-        }
-    );
+    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.EXPO_PUBLIC_OPENAI_KEY}` },
+      body: formData,
+    });
 
     const data = await response.json();
     console.log("📝 Whisper text:", data.text);
 
     return data.text ?? "";
-    };
+  };
 
-  // ---------------------------------------
-  // 4. Ask GPT as Gordon Ramsay
-  // ---------------------------------------
-const getChefReply = async (userText: string) => {
-  const systemPrompt = `
+  // -------------------------
+  // GPT REPLY IN CHEF STYLE
+  // -------------------------
+  const getChefReply = async (userText: string) => {
+    const systemPrompt = `
 ${chef.prompt}
 
 Recipe Title: ${parsed.title}
@@ -149,86 +182,106 @@ Current Step (${stepIndex + 1}): ${parsed.steps[stepIndex]}
 
 Full Steps:
 ${parsed.steps.join("\n")}
-  `;
+`;
 
-  const resp = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userText },
-    ],
-  });
+    const resp = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userText },
+      ],
+    });
 
-  return resp.choices[0].message.content;
-};
+    return resp.choices[0].message.content;
+  };
 
-  // ---------------------------------------
-  // 5. Speak using Fish TTS Chef voice
-  // ---------------------------------------
-    const speakAsChef = async (text: string) => {
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: false,
-    playsInSilentModeIOS: true,
-  });
+  // -------------------------
+  // SPEAK AS CHEF (Fish TTS)
+  // -------------------------
+  const speakAsChef = async (text: string) => {
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+    });
 
-  const fileUri = await generateVoice(text, chef.voiceId);
+    const fileUri = await generateVoice(text, chef.voiceId);
 
-  const { sound } = await Audio.Sound.createAsync(
-    { uri: fileUri },
-    { shouldPlay: true, volume: 1.0 }
-  );
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: fileUri },
+      { shouldPlay: true, volume: 1.0 }
+    );
 
-  await sound.playAsync();
-};
+    await sound.playAsync();
+  };
 
-  // ---------------------------------------
-  // FULL PIPELINE: record → whisper → gpt → tts
-  // ---------------------------------------
+  // -------------------------
+  // FULL PIPELINE
+  // -------------------------
   const processUserVoice = async (uri: string) => {
     const userText = await transcribeAudio(uri);
     const chefReply = await getChefReply(userText);
 
-    // safety fallback
     if (!chefReply) {
-    console.log("⚠️chef reply was empty.");
-    return;
-}
+      console.log("⚠️ Chef reply was empty.");
+      return;
+    }
 
-await speakAsChef(chefReply);
+    await speakAsChef(chefReply);
   };
 
-  // ---------------------------------------
+  // -------------------------
   // UI
-  // ---------------------------------------
+  // -------------------------
   return (
     <ScrollView style={{ flex: 1, padding: 20 }}>
       <TouchableOpacity onPress={() => router.back()}>
         <Text style={{ fontSize: 16, color: "#555" }}>← Back</Text>
       </TouchableOpacity>
-    {/* --- CHEF SELECTOR --- */}
-<View style={{ marginTop: 15, marginBottom: 15 }}>
-  <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 8 }}>
-    Choose Your Chef
-  </Text>
 
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {Object.entries(CHEFS).map(([id, c]) => (
-        <TouchableOpacity
-            key={id}
-            onPress={() => setChefId(id as ChefId)}
-            style={{
-            paddingVertical: 10,
-            paddingHorizontal: 16,
-            backgroundColor: chefId === id ? "#4caf50" : "#ddd",
-            borderRadius: 12,
-            marginRight: 10,
-            }}
-        >
-            <Text style={{ fontWeight: "600" }}>{c.name}</Text>
-        </TouchableOpacity>
-        ))}
-    </ScrollView>
-    </View>
+      {/* --- CHEF SELECTOR --- */}
+      <View style={{ marginTop: 15, marginBottom: 15 }}>
+        <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 8 }}>
+          Choose Your Chef
+        </Text>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {/* Built-in chefs */}
+          {Object.entries(CHEFS).map(([id, c]) => (
+            <TouchableOpacity
+              key={id}
+              onPress={() => setChefId(id as BuiltInChefId)}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 16,
+                backgroundColor: chefId === id ? "#4caf50" : "#ddd",
+                borderRadius: 12,
+                marginRight: 10,
+              }}
+            >
+              <Text style={{ fontWeight: "600" }}>{c.name}</Text>
+            </TouchableOpacity>
+          ))}
+
+          {/* Custom chefs */}
+          {customChefs.map((c) => (
+            <TouchableOpacity
+              key={c.id}
+              onPress={() => setChefId(`custom-${c.id}` as CustomChefId)}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 16,
+                backgroundColor:
+                  chefId === `custom-${c.id}` ? "#4caf50" : "#ddd",
+                borderRadius: 12,
+                marginRight: 10,
+              }}
+            >
+              <Text style={{ fontWeight: "600" }}>{c.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       <Text style={{ fontSize: 30, fontWeight: "800", marginTop: 10 }}>
         {parsed.title}
       </Text>

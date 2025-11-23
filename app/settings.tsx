@@ -1,13 +1,24 @@
+import { Audio } from "expo-av";
 import { router } from "expo-router";
-import { doc, updateDoc } from "firebase/firestore";
-import { useState } from "react";
-import { Button, ScrollView, Text, TextInput, View } from "react-native";
+import { collection, doc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import React, { useRef, useState } from "react";
+import { Button, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { createFishVoiceModel } from "../lib/create-custom-chefs";
 import { useAuth } from "../src/context/AuthContext";
 import { db } from "../src/firebase/config";
 
 export default function Settings() {
   const { user, profile, logout } = useAuth();
+const [chefName, setChefName] = useState("");
+const [chefPrompt, setChefPrompt] = useState(
+  "You are a friendly cooking assistant. Keep answers short and very practical."
+);
+const [isRecording, setIsRecording] = useState(false);
+const [sampleUri, setSampleUri] = useState<string | null>(null);
+const [status, setStatus] = useState<string | null>(null);
+const [loading, setLoading] = useState(false);
 
+const recordingRef = useRef<any>(null);
   const [dietary, setDietary] = useState(profile?.dietary ?? "");
   const [allergies, setAllergies] = useState(profile?.allergies ?? "");
   const [editing, setEditing] = useState(false);
@@ -22,7 +33,113 @@ export default function Settings() {
       console.log("Failed to update preferences:", err);
     }
   };
+  // 🎤 Start recording
+const startRecording = async () => {
+  setStatus(null);
 
+  // 1️⃣ Make sure no previous recording is active
+  try {
+    if (recordingRef.current) {
+      console.log("Cleaning up previous recording…");
+      await recordingRef.current.stopAndUnloadAsync().catch(() => {});
+      recordingRef.current = null;
+    }
+  } catch (err) {
+    console.log("Cleanup error:", err);
+  }
+
+  // 2️⃣ Request mic permissions
+  const perm = await Audio.requestPermissionsAsync();
+  if (perm.status !== "granted") {
+    setStatus("Microphone permission denied.");
+    return;
+  }
+
+  // 3️⃣ Set audio mode
+  await Audio.setAudioModeAsync({
+    allowsRecordingIOS: true,
+    playsInSilentModeIOS: true,
+  });
+
+  // 4️⃣ Create a NEW recording
+  const rec = new Audio.Recording();
+  recordingRef.current = rec;
+
+  try {
+    await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+    await rec.startAsync();
+    setIsRecording(true);
+  } catch (err) {
+    console.log("Recording start error:", err);
+    setStatus("Failed to start recording");
+  }
+};
+
+// 🛑 Stop recording
+const stopRecording = async () => {
+  setIsRecording(false);
+
+  try {
+    const rec = recordingRef.current;
+    if (!rec) return;
+
+    await rec.stopAndUnloadAsync();
+    const uri = rec.getURI();
+    setSampleUri(uri);
+    setStatus("Voice sample recorded!");
+  } catch (err) {
+    setStatus("Failed to stop recording");
+  }
+};
+
+const submitCustomChef = async () => {
+  if (!chefName.trim()) {
+    setStatus("Enter a chef name.");
+    return;
+  }
+  if (!sampleUri) {
+    setStatus("Record a voice sample first.");
+    return;
+  }
+  if (!user) return;
+
+  try {
+    setLoading(true);
+    setStatus("Uploading to Fish Audio…");
+
+    // FIXED
+    const fishResponse = await createFishVoiceModel(chefName, sampleUri, {
+      description: `Custom chef model: ${chefName}`,
+      visibility: "private",
+      enhanceAudioQuality: true,
+    });
+
+    const modelId = fishResponse.modelId;
+
+    if (!modelId) {
+      setStatus("Fish API did not return a model ID.");
+      return;
+    }
+
+    setStatus("Saving to Firebase…");
+
+    // 2. Save custom chef in Firestore
+    const ref = doc(collection(db, "users", user.uid, "customChefs"), modelId);
+
+    await setDoc(ref, {
+      name: chefName,
+      voiceId: modelId,
+      prompt: chefPrompt,
+      createdAt: serverTimestamp(),
+    });
+    setStatus("🎉 Custom Chef Created Successfully!");
+    } catch (err) {
+        console.log("Custom chef create error:", err);
+        setStatus("Failed to create chef.");
+    } finally {
+        setLoading(false);
+    }
+    };
   return (
     <ScrollView
       contentContainerStyle={{
@@ -99,7 +216,101 @@ export default function Settings() {
           <Button title="Edit Preferences" onPress={() => setEditing(true)} />
         )}
       </View>
+    {/* -------------------------------------------- */}
+{/* CUSTOM CHEF SECTION */}
+{/* -------------------------------------------- */}
+<View
+  style={{
+    width: "100%",
+    padding: 24,
+    borderRadius: 16,
+    backgroundColor: "white",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 5,
+    marginBottom: 30,
+    marginTop: 20
+  }}
+>
+  <Text style={{ fontSize: 22, fontWeight: "700", marginBottom: 12 }}>
+    🎙️ Create Custom Chef Voice
+  </Text>
 
+  <Text style={{ fontSize: 16, fontWeight: "600" }}>Chef Name</Text>
+  <TextInput
+    value={chefName}
+    onChangeText={setChefName}
+    placeholder="e.g., Grandma, Workout Chef"
+    style={{
+      borderWidth: 1,
+      borderColor: "#ccc",
+      borderRadius: 8,
+      padding: 8,
+      marginTop: 4,
+      marginBottom: 16,
+    }}
+  />
+
+  <Text style={{ fontSize: 16, fontWeight: "600" }}>AI Personality Prompt</Text>
+  <TextInput
+    value={chefPrompt}
+    onChangeText={setChefPrompt}
+    placeholder="Describe how this chef should talk..."
+    multiline
+    style={{
+      borderWidth: 1,
+      borderColor: "#ccc",
+      borderRadius: 8,
+      padding: 8,
+      marginTop: 4,
+      minHeight: 70,
+      marginBottom: 16,
+    }}
+  />
+
+  {/* RECORD BUTTON */}
+  <TouchableOpacity
+    onPressIn={startRecording}
+    onPressOut={stopRecording}
+    style={{
+      backgroundColor: isRecording ? "#b71c1c" : "#e53935",
+      padding: 14,
+      borderRadius: 40,
+      marginBottom: 10,
+    }}
+  >
+    <Text style={{ color: "white", textAlign: "center", fontSize: 16 }}>
+      {isRecording ? "Release to stop recording…" : "🎤 Hold to record voice sample"}
+    </Text>
+  </TouchableOpacity>
+
+  {sampleUri && (
+    <Text style={{ color: "#4caf50", marginBottom: 10 }}>
+      Voice sample recorded ✔
+    </Text>
+  )}
+
+  {/* SUBMIT */}
+  <TouchableOpacity
+    disabled={loading}
+    onPress={submitCustomChef}
+    style={{
+      backgroundColor: loading ? "#aaa" : "#4caf50",
+      padding: 14,
+      borderRadius: 10,
+    }}
+  >
+    <Text style={{ color: "white", textAlign: "center", fontWeight: "600" }}>
+      {loading ? "Creating Chef…" : "Create Custom Chef"}
+    </Text>
+  </TouchableOpacity>
+
+  {status && (
+    <Text style={{ marginTop: 10, color: "#555" }}>{status}</Text>
+  )}
+</View>
       {/* Logout */}
       <View style={{ width: "100%" }}>
         <Button
