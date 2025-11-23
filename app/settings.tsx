@@ -1,4 +1,5 @@
 import { Audio } from "expo-av";
+import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { collection, doc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import React, { useRef, useState } from "react";
@@ -22,7 +23,33 @@ const recordingRef = useRef<any>(null);
   const [dietary, setDietary] = useState(profile?.dietary ?? "");
   const [allergies, setAllergies] = useState(profile?.allergies ?? "");
   const [editing, setEditing] = useState(false);
+  
+const pickAudioFile = async () => {
+  try {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["audio/*", "audio/mpeg", "audio/wav", "audio/mp4", "audio/x-m4a"],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
 
+    if (result.canceled) {
+      setStatus("File selection canceled.");
+      return;
+    }
+
+    const file = result.assets?.[0];
+    if (!file) {
+      setStatus("Failed to load file.");
+      return;
+    }
+
+    setSampleUri(file.uri);
+    setStatus(`Selected file: ${file.name}`);
+  } catch (err) {
+    console.log("File picker error:", err);
+    setStatus("Could not pick audio file.");
+  }
+};
   const savePreferences = async () => {
     if (!user) return;
     try {
@@ -285,6 +312,19 @@ const submitCustomChef = async () => {
       {isRecording ? "Release to stop recording…" : "🎤 Hold to record voice sample"}
     </Text>
   </TouchableOpacity>
+  <TouchableOpacity
+  onPress={pickAudioFile}
+  style={{
+    backgroundColor: "#6a1b9a",
+    padding: 14,
+    borderRadius: 40,
+    marginBottom: 10,
+  }}
+>
+  <Text style={{ color: "white", textAlign: "center", fontSize: 16 }}>
+    📁 Upload audio file
+  </Text>
+</TouchableOpacity>
 
   {sampleUri && (
     <Text style={{ color: "#4caf50", marginBottom: 10 }}>
